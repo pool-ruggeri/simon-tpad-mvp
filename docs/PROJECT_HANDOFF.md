@@ -10,7 +10,9 @@ acceptance and physical/EEG qualification remain outstanding.
 
 - Repository: `C:\Users\pruggeri\Documents\EXPERIMENTS\GABRIEL_PAOLO`
 - Branch: `main`.
-- Implementation commit: awaiting the initial local commit; replaced during handoff.
+- Validated implementation commit: `106f32d50590c57e9a752ad1e236ae3ef660ae66`.
+  The subsequent handoff commit updates this document only; the code and tests
+  remain at this validated implementation revision.
 - Current repository revision: `HEAD`; resolve with the commands below.
 - Git author: `paolo ruggeri <paolo@mailtrial.com>`, supplied by the PO and
   configured only in this repository.
