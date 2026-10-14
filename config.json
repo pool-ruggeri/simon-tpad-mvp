@@ -1,0 +1,21 @@
+{
+  "serial_port": "COM5",
+  "expected_firmware": "20250809",
+  "practice_trials": 4,
+  "experimental_trials": 16,
+  "random_seed": 20261014,
+  "fixation_ms": 500,
+  "stimulus_ms": 500,
+  "response_window_ms": 1500,
+  "black_interval_ms": 500,
+  "drain_grace_ms": 500,
+  "setup_timeout_ms": 2000,
+  "optical_duration_tolerance_ms": 50,
+  "full_screen": true,
+  "screen": 0,
+  "window_size": [1024, 768],
+  "marker_size_px": 80,
+  "marker_margin_px": 20,
+  "stimulus_size_px": 100,
+  "stimulus_eccentricity_px": 200
+}
