@@ -71,8 +71,10 @@ connection supplies behavioral responses. Future HID redundancy is unimplemented
 - Intended repository: **PRIVATE**
   [pool-ruggeri/simon-tpad-mvp](https://github.com/pool-ruggeri/simon-tpad-mvp).
   The PO selected `pool-ruggeri`; the unrelated `hippolytefournier` PC credentials
-  must not determine repository ownership. Authentication/publication is in
-  progress; do not infer a completed push from this planned URL.
+  must not determine repository ownership. The official portable GitHub CLI was
+  authenticated as `pool-ruggeri`, with credentials in the Windows keyring and
+  no global Git credential-helper change. Publication is in progress; do not
+  infer a completed push from this planned URL.
 - Branch: `main`. Starting HEAD: `53b648516eb3d8202b59f2180a9b245ba177439f`.
   The publication revision is the final `HEAD`; resolve with `git rev-parse HEAD`
   and compare to `git ls-remote origin refs/heads/main`. History is preserved.
@@ -99,8 +101,24 @@ connection supplies behavioral responses. Future HID redundancy is unimplemented
   install prerequisites, alter drivers/firmware, or modify global Python.
 - Initial `-VerifyOnly` passed pinned versions, `pip check`, all application and
   PsychoPy visual imports, all three CLI help commands, and **52 tests** (3.631 s).
-  All three PowerShell launch wrappers also passed `--help`. Fresh-install
-  verification is pending and must be recorded before publication.
+  All three PowerShell launch wrappers also passed `--help`.
+- Fresh installation passed from local preparation commit `0cceec3` in the clean
+  clone `.cache/portability-check/repo`, using the documented default setup command
+  and a newly created `.venv`. Package-index installation (including normal pip
+  cache reuse), `pip check`, every pinned version, all application/PsychoPy visual
+  imports, CLI startup and **52 tests** (1.687 s) passed. Its 101 installed package
+  versions including packaging tools exactly match the original environment.
+  The original environment's before/after package sets are unchanged.
+- The fresh clone's `run_simon.py --gui-smoke` passed with a real 1024 x 768 window,
+  59.9937 Hz measured refresh and no serial open. The expected default-monitor
+  warning appeared. No physical display calibration, tPAD or EEG was tested.
+  Evidence: ignored `.cache/m3_portability_evidence.json` and the clone's
+  `.cache/gui_smoke.json`. This is a same-PC clean installation, not validation
+  of a second physical PC, Windows 11, or a package-cache-free/offline installation.
+- Both acquisition CLI paths were checked with a temporary complete configuration
+  selecting COM17 and a mocked run function; the diagnostic's `--port COM18`
+  correctly overrides that setting. No serial connection was opened. The existing
+  `.venv` preservation error and nine representative ignore patterns were checked.
 
 M3 laboratory status comes from the PO's supplied milestone instructions, not a
 new hardware measurement or review of saved raw/BDF files during this work:
@@ -361,8 +379,9 @@ Resume M2B in the repository:
 ```
 
 Close the M2 calibration window and disconnect/close BBTK first: the diagnostic
-needs exclusive COM5 ownership. It does not adjust sensitivity. Next milestone:
-the PO runs M2B on real hardware, retains the output folder, and investigates
+needs exclusive ownership of the configured port. It does not adjust sensitivity.
+The PO now reports 10/10 real pulses. On a new PC, repeat M2B, retain its output,
+and investigate
 short activations, missing/ambiguous/unpaired events, nominal duration deviations,
 and all frame warnings. Full-screen physical/EEG qualification remains separate.
 
@@ -401,10 +420,12 @@ No known unresolved software test failures. Remaining qualification/limits:
 
 ## Next milestone
 
-The PO executes docs/HARDWARE_VALIDATION.md without EEG first. Preserve real
-session IDs/raw logs, confirm all clean trials and the timer-boundary assumptions,
-and record timing/abort evidence here. After behavioral acceptance, qualify the
-physical marker scanout relation and EEG electrical/recorded TTL chain separately.
+Complete/verify M3 private publication as recorded above. On each new PC, repeat
+docs/HARDWARE_VALIDATION.md and retain actual session IDs/raw logs
+and display/timing/abort evidence. Preserve the PO's reported laboratory successes;
+next qualify saved BioSemi BDF events/timing, physical marker scanout and the
+OpenBCI cable/input interface before use. Implement the optical artifact-selection
+policy only under a separately authorized scientific change.
 
 ## Exact commands to resume
 
@@ -424,5 +445,7 @@ For the full-screen behavioral session, move the sensor to the full-screen marke
 .\.venv\Scripts\python.exe run_simon.py
 ```
 
-If `.venv` is absent on another PC, use the exact recreation commands in README.md.
+For a new PC, follow docs/INSTALL_ON_NEW_PC.md and run setup_windows.ps1. For
+an existing environment use setup_windows.ps1 -VerifyOnly. Confirm private
+origin/main with `git remote -v` and `git ls-remote origin refs/heads/main`.
 Never install into global Python or an existing PsychoPy environment.
