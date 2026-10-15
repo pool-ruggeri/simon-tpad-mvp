@@ -2,42 +2,48 @@ import json
 from pathlib import Path
 import tempfile
 import unittest
+from unittest.mock import Mock
 
-from calibrate_opto import Sequence, patch_position, profile_scale
+from calibrate_opto import CalibrationWindow, PatchState, patch_position, profile_scale
 
 
 class OptoCalibrationTests(unittest.TestCase):
-    def test_ten_second_phases_are_anchored_to_their_actual_flips(self):
-        sequence = Sequence()
-        sequence.start()
-        sequence.advance(1234)
-        self.assertEqual(sequence.phase, "black")
-        sequence.flipped(1234.5)
-        sequence.advance(1244.49999)
-        self.assertEqual(sequence.phase, "black")
-        sequence.advance(1244.5)
-        self.assertEqual(sequence.phase, "white")
-        # A delayed white flip must still receive its own full ten seconds.
-        sequence.flipped(1244.52)
-        sequence.advance(1254.51999)
-        self.assertEqual(sequence.phase, "white")
-        sequence.advance(1254.52)
-        self.assertEqual(sequence.phase, "completed")
-        sequence.flipped(1254.53)
-        self.assertEqual([entry["phase"] for entry in sequence.history], ["black", "white", "completed"])
+    def test_initial_black_and_repeated_manual_toggles(self):
+        state = PatchState()
+        self.assertEqual(state.phase, "black")
+        for expected in ("white", "black", "white", "black"):
+            state.toggle()
+            self.assertEqual(state.phase, expected)
 
-    def test_space_during_sequence_does_not_restart_it_and_repeat_starts_black(self):
-        sequence = Sequence()
-        sequence.start()
-        sequence.flipped(5)
-        sequence.start()
-        self.assertEqual(sequence.started_at, 5)
-        sequence.advance(15)
-        sequence.flipped(15)
-        sequence.advance(25)
-        sequence.flipped(25)
-        sequence.start()
-        self.assertEqual((sequence.phase, sequence.started_at), ("black", None))
+    def test_space_requires_placement_and_idle_frames_preserve_color(self):
+        app = CalibrationWindow.__new__(CalibrationWindow)
+        app.window = Mock(size=(1024, 768))
+        app.window.winHandle.has_exit = False
+        app.event = Mock()
+        app.mouse = Mock()
+        app.mouse.getPos.return_value = (0, 0)
+        app.patch, app.outline, app.title, app.status = Mock(), Mock(), Mock(), Mock()
+        app.state, app.position, app.pending_click = PatchState(), None, None
+        app.pixels_per_cm, app.side = 40, 160
+        app.event.getKeys.return_value = ["space"]
+        self.assertTrue(app.step())
+        self.assertEqual(app.state.phase, "black")
+        app.position = (0, -100)
+        self.assertTrue(app.step())
+        self.assertEqual(app.state.phase, "white")
+        app.event.getKeys.return_value = []
+        for _ in range(1200):
+            self.assertTrue(app.step())
+        self.assertEqual(app.state.phase, "white")
+        app.pending_click = (120, -100)
+        self.assertTrue(app.step())
+        self.assertEqual(app.position, (120, -100))
+        self.assertEqual(app.state.phase, "white")
+        app.event.getKeys.return_value = ["space"]
+        self.assertTrue(app.step())
+        self.assertEqual(app.state.phase, "black")
+        app.event.getKeys.return_value = ["escape"]
+        self.assertFalse(app.step())
 
     def test_patch_is_kept_whole_and_outside_instruction_area(self):
         self.assertEqual(patch_position((0, -50), 160, (1024, 768)), (0, -50))

@@ -1,7 +1,7 @@
-"""Standalone 4 x 4 cm optical patch. No serial connection or device commands."""
+"""Standalone 4 x 4 cm optical patch. Press Space to toggle black/white."""
 
 import argparse
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 import json
 import math
 import os
@@ -15,35 +15,18 @@ ROOT = Path(__file__).resolve().parent
 COLOR_SPACE = "rgb"
 BLACK = (-1, -1, -1)
 WHITE = (1, 1, 1)
-PHASE_SECONDS = 10.0
 HEADER_PX = 200
 INTRO = "Click to create a 4 × 4 cm calibration patch and position it under the optical sensor."
 
 
 @dataclass
-class Sequence:
-    """Start every ten-second interval at its actual presentation flip."""
+class PatchState:
+    """Hold the selected color until the operator requests another transition."""
 
-    phase: str = "ready"
-    started_at: float | None = None
-    history: list = field(default_factory=list)
+    phase: str = "black"
 
-    def start(self):
-        if self.phase in ("ready", "completed"):
-            self.phase, self.started_at = "black", None
-
-    def advance(self, next_flip):
-        if self.started_at is not None and next_flip >= self.started_at + PHASE_SECONDS:
-            if self.phase == "black":
-                self.phase, self.started_at = "white", None
-            elif self.phase == "white":
-                self.phase, self.started_at = "completed", None
-
-    def flipped(self, timestamp):
-        if self.phase != "ready" and self.started_at is None:
-            self.started_at = timestamp
-            self.history.append({"phase": self.phase, "flip_s": timestamp})
-            print(f"{self.phase}: flip {timestamp:.6f} s", flush=True)
+    def toggle(self):
+        self.phase = "white" if self.phase == "black" else "black"
 
 
 def monitor_folders():
@@ -159,7 +142,7 @@ class CalibrationWindow:
                 raise ValueError("The supplied scale makes 4 cm smaller than one drawing pixel.")
             patch_position((0, 0), self.side, self.window.size)
             self.position = None
-            self.sequence = Sequence()
+            self.state = PatchState()
             self.mouse = self.event.Mouse(win=self.window, visible=True)
             self.pending_click = None
             self.window.winHandle.push_handlers(on_mouse_press=self.on_click)
@@ -173,10 +156,6 @@ class CalibrationWindow:
             self.status = visual.TextStim(self.window, text="", color=WHITE, colorSpace=COLOR_SPACE,
                                           height=18, wrapWidth=width - 48, pos=(0, height / 2 - 125), autoLog=False)
             self.window.flip()
-            refresh = self.window.getActualFrameRate(nIdentical=20, nMaxFrames=180, nWarmUpFrames=30)
-            if refresh is None or refresh <= 0:
-                raise RuntimeError("Cannot measure a stable refresh rate for timed calibration.")
-            self.refresh_hz = refresh
             self.event.clearEvents()
             print(self.scale_source, flush=True)
         except BaseException:
@@ -196,7 +175,6 @@ class CalibrationWindow:
         if "escape" in keys or self.window.winHandle.has_exit:
             return False
         clicked, self.pending_click = self.pending_click, None
-        running = self.sequence.phase in ("black", "white")
         if self.pixels_per_cm is None:
             # This outline has no claimed physical size until confirmed with a
             # real ruler. Measure BOTH sides; Enter accepts four physical cm.
@@ -210,14 +188,13 @@ class CalibrationWindow:
                 self.pixels_per_cm = self.side / 4
                 self.scale_source = f"ruler-confirmed {self.pixels_per_cm:g} pixels per cm"
                 print(self.scale_source, flush=True)
-        elif clicked is not None and not running:
+        elif clicked is not None:
             self.position = patch_position(clicked, self.side, self.window.size)
         if "space" in keys and self.position is not None:
-            self.sequence.start()
-        self.sequence.advance(self.window.getFutureFlipTime())
+            self.state.toggle()
         over_patch = (self.position is not None and
                       all(abs(a - b) <= self.side / 2 + 6 for a, b in zip(self.mouse.getPos(), self.position)))
-        self.mouse.setVisible(self.sequence.phase not in ("black", "white") and not over_patch)
+        self.mouse.setVisible(not over_patch)
         self.patch.size = (self.side, self.side)
         self.outline.size = (self.side + 12, self.side + 12)
         if self.pixels_per_cm is None:
@@ -228,22 +205,23 @@ class CalibrationWindow:
             self.outline.pos = patch_position((0, -HEADER_PX / 2), self.side, self.window.size)
             self.outline.draw()
         else:
-            if self.sequence.phase == "completed":
-                message = "Calibration sequence completed.\nSpace repeats; click to reposition. Escape closes."
-            elif self.sequence.phase in ("black", "white"):
-                message = "Calibration running: 10 s black, then 10 s white, then black.\nSwitch to BBTK as needed; the sequence continues. Escape closes when this window has focus."
+            if self.position is not None:
+                next_color = "white" if self.state.phase == "black" else "black"
+                message = (f"Patch is {self.state.phase}. Press SPACE to switch to {next_color}.\n"
+                           "Click to reposition. Focus this window for SPACE or ESC.\n"
+                           "The selected color stays visible while you use BBTK.")
             else:
-                message = "Click below these instructions to place or reposition the black patch.\nSpace starts: 10 s black, then 10 s white, then black. Escape closes."
+                message = "Click below these instructions to place the black patch.\nSPACE then toggles black/white. ESC closes when this window has focus."
             self.status.text = f"{message}\nScale: {self.pixels_per_cm:g} px/cm. Keep this window on the calibrated display."
             if self.position is not None:
                 self.patch.pos = self.outline.pos = self.position
-                color = WHITE if self.sequence.phase == "white" else BLACK
+                color = WHITE if self.state.phase == "white" else BLACK
                 self.patch.fillColor = self.patch.lineColor = color
                 self.outline.draw()
                 self.patch.draw()
         self.title.draw()
         self.status.draw()
-        self.sequence.flipped(self.window.flip())
+        self.window.flip()
         return True
 
     def close(self):

@@ -52,10 +52,11 @@ instructions to create the black patch, or click again to reposition it. Border
 clicks are clamped so the whole patch remains inside the window and away from
 instructions. Keep the sensor inside the patch, away from its external outline.
 
-Space starts **10 seconds black → 10 seconds white → black**, automatically.
-Space repeats; Escape closes when this window has keyboard focus. Placement is
-locked during the sequence. Focus changes do not pause it. Text and cursor stay
-outside the sensor area.
+Each **SPACE press toggles black → white → black**, as often as needed. The patch
+starts black and holds its selected color until the next press; there is no timer
+or automatic sequence. Click again to reposition it at any time. Focus the patch
+window for SPACE or ESC; ESC closes. The selected color stays visible while BBTK
+has focus. Text and cursor stay outside the sensor area.
 
 If the physical scale is already measured, specify drawing pixels per centimeter:
 
@@ -76,13 +77,14 @@ available to BBTK.** This patch utility never opens it or sends device commands.
 For an independently controlled patch, follow the external-patch sensitivity
 procedure in [section 5 of the T-Pad guide](https://www.blackboxtoolkit.com/docs/pdf/TPadv1r1.pdf):
 use BBTK's “Adj. To Another Device” workflow and acknowledge prompts during the
-matching patch phases. Repeat if necessary. There is no handshake or confirmation
-of sensor calibration; the completion message confirms the visual sequence only.
+matching patch colors. Focus the patch window and press SPACE when a color change
+is needed, then return to BBTK. There is no handshake or confirmation of sensor
+calibration from this utility.
 BBTK's same-PC automatic routine controls its own patch. All sensitivity changes
 are made by the operator in BBTK. Close/disconnect BBTK before a Simon session.
 
-Ten-second targets start at the actual black/white flips, with no sleeps.
-Refresh/compositor timing limits physical precision. No serial connection,
+Manual transitions use the draw/flip loop, with no sleeps. Refresh/compositor
+timing limits physical precision. No serial connection,
 tPAD mode/timer/TTL changes, or Simon launch occur in this utility.
 
 For an automatically closing GUI smoke check (synthetic size, no sensor calibration):

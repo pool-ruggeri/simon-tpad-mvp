@@ -10,6 +10,7 @@ from ctypes import wintypes
 import json
 from pathlib import Path
 import sys
+import time
 from unittest.mock import patch
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
@@ -35,19 +36,24 @@ def send_key(app, name):
 
 
 def check_pixels(app, expected):
-    # GL_FRONT reads can be empty under the Windows compositor. Capture only our
-    # visible client area instead, which also checks the topmost window behavior.
-    from PIL import ImageGrab
-    origin, rect = wintypes.POINT(0, 0), wintypes.RECT()
-    assert ctypes.windll.user32.ClientToScreen(app.window._hw_handle, ctypes.byref(origin))
-    assert ctypes.windll.user32.GetClientRect(app.window._hw_handle, ctypes.byref(rect))
-    frame = ImageGrab.grab(bbox=(origin.x, origin.y, origin.x + rect.right, origin.y + rect.bottom), all_screens=True)
-    scale = app.window.getContentScaleFactor()
-    x = round(frame.width / 2 + app.position[0] / scale)
-    y = round(frame.height / 2 - app.position[1] / scale)
+    # Inspect this utility's rendered frame before its flip. Desktop captures
+    # can include other applications covering our window on the shared desktop.
+    flip = app.window.flip
+    frames = []
+
+    def capture_and_flip():
+        app.window.getMovieFrame(buffer="back")
+        frames.append(app.window.movieFrames.pop())
+        return flip()
+
+    with patch.object(app.window, "flip", side_effect=capture_and_flip):
+        assert app.step()
+    frame = frames[0]
+    x = round(frame.width / 2 + app.position[0])
+    y = round(frame.height / 2 - app.position[1])
     # Check the center and near all four patch corners, away from the outline.
     for dx, dy in ((0, 0), (-70, -70), (70, -70), (-70, 70), (70, 70)):
-        actual = frame.getpixel((x + round(dx / scale), y + round(dy / scale)))[:3]
+        actual = frame.getpixel((x + dx, y + dy))[:3]
         if actual != expected:
             frame.save(ROOT / ".cache" / "opto_smoke_actual.png")
         assert actual == expected, (actual, expected, frame.size, (x + dx, y + dy))
@@ -91,8 +97,6 @@ def main():
                 assert tuple(reference.fillColor) == WHITE
                 print("Ruler setup, reference marker colors, placement and black patch verified. Physical size is unmeasured.")
                 return
-            send_key(app, "SPACE")
-            assert app.sequence.phase == "black"
             # This is an owned blank window, standing in for switching to BBTK.
             # A native STATIC window provides an independent focus target without
             # introducing a second OpenGL context into PsychoPy's render process.
@@ -108,28 +112,42 @@ def main():
             ctypes.windll.user32.SetForegroundWindow(focus_window)
             ctypes.windll.user32.GetForegroundWindow.restype = wintypes.HWND
             was_unfocused = False
-            checked_white = False
-            while app.sequence.phase != "completed":
-                assert app.step()
-                was_unfocused |= ctypes.windll.user32.GetForegroundWindow() != app.window._hw_handle
-                if app.sequence.phase == "white" and not checked_white:
-                    check_pixels(app, (255, 255, 255)).save(ROOT / ".cache" / "opto_smoke_white.png")
-                    checked_white = True
-            check_pixels(app, (0, 0, 0))
-            assert checked_white and was_unfocused
-            history = list(app.sequence.history)
-            durations = [b["flip_s"] - a["flip_s"] for a, b in zip(history, history[1:])]
-            assert all(abs(duration - 10) < 2 / app.refresh_hz for duration in durations), durations
+            held_seconds = {}
+            for phase, pixels in (("black", (0, 0, 0)), ("white", (255, 255, 255))):
+                if phase == "white":
+                    ctypes.windll.user32.SetForegroundWindow(app.window._hw_handle)
+                    send_key(app, "SPACE")
+                    ctypes.windll.user32.SetForegroundWindow(focus_window)
+                assert app.state.phase == phase
+                started = time.perf_counter()
+                # Wait longer than the old automatic ten-second phase. Every
+                # draw/flip must retain the color until another Space press.
+                while time.perf_counter() - started < 11:
+                    assert app.step()
+                    assert app.state.phase == phase
+                    was_unfocused |= ctypes.windll.user32.GetForegroundWindow() != app.window._hw_handle
+                held_seconds[phase] = time.perf_counter() - started
+                check_pixels(app, pixels).save(ROOT / ".cache" / f"opto_smoke_{phase}.png")
+            assert was_unfocused
             ctypes.windll.user32.DestroyWindow(focus_window)
             focus_window = None
+            ctypes.windll.user32.SetForegroundWindow(app.window._hw_handle)
             send_key(app, "SPACE")
-            assert app.sequence.phase == "black"
+            assert app.state.phase == "black"
+            check_pixels(app, (0, 0, 0))
+            send_key(app, "SPACE")
+            assert app.state.phase == "white"
+            send_mouse(app, -120, -100, True)
+            send_mouse(app, -120, -100, False)
+            assert tuple(app.position) == (-120, -100)
+            assert app.state.phase == "white"
+            check_pixels(app, (255, 255, 255))
             from pyglet.window import key
             app.window.winHandle.dispatch_event("on_key_press", key.ESCAPE, 0)
             assert not app.step()
-            evidence = {"phase_history": history, "durations_s": durations,
-                        "refresh_hz": app.refresh_hz, "placement_and_reposition": True,
-                        "unfocused_sequence": True, "repeat_and_escape": True,
+            evidence = {"manual_phases": ["black", "white", "black", "white"],
+                        "held_without_space_s": held_seconds, "placement_and_reposition": True,
+                        "unfocused_color_held": True, "space_and_escape": True,
                         "black_white_pixels_verified": True, "serial_opened": False,
                         "pixels_per_cm": 40, "physical_scale": "synthetic, not ruler-verified"}
             (ROOT / ".cache" / "opto_smoke.json").write_text(json.dumps(evidence, indent=2), encoding="utf-8")

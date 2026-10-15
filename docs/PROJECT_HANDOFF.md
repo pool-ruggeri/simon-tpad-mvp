@@ -19,9 +19,10 @@ timing after the operator calibrates sensitivity separately in the BBTK app.
   original tests unchanged. The M2 commit adds the standalone utility and its
   tests, and updates README/decisions/this handoff; resolve current HEAD below.
 - M2 baseline commit: `b05fb53c23c52cce829dd1aca225188d73017601`.
-  M2B adds `opto_diagnostic.py` and focused tests/documentation; Simon and M2 source,
-  shared serial/trial modules, configuration, dependencies, and old tests remain
-  unchanged. Current M2B revision is repository HEAD (resolve below).
+  The current M2 revision replaces its automatic sequence with manual Space
+  toggles, following the PO's request. M2B adds `opto_diagnostic.py` and focused
+  tests/documentation; Simon source, shared serial/trial modules, configuration,
+  dependencies, and original tests remain unchanged. Resolve current HEAD below.
 - M2B initial implementation: `75aa94021e79c794a37f83f75f2eb1519a9e9ec2`.
   The PO subsequently simplified its presentation to optical white/black pulses
   only; the current revision supersedes that commit's full Simon timeline.
@@ -120,13 +121,15 @@ Clicks place/reposition a black patch below a reserved instruction area. Click
 coordinates are captured at the event, avoiding pointer motion before processing.
 The full patch is clamped within the window; its outline is outside it. Mouse
 cursor and instruction text never cover the patch while it is being presented.
-Space starts black for 10 s, white for 10 s, then black with the completion
-message; Space repeats. Placement is locked while running. Escape and close
+The patch starts black; each Space press toggles black/white, indefinitely, with
+no timer or automatic transitions. Click to reposition in either color. Focus
+this window for Space or Escape. The selected color remains visible while the
+operator uses BBTK. Escape and close
 cleanup release the window without touching the T-Pad. A Windows topmost window
 remains visible when another application has focus; no focus-dependent pause,
 blocking sleep, global keyboard hook, or persistent Windows change is used.
 
-M2 verification:
+Original M2 verification at `b05fb53` (automatic sequence now superseded):
 
 - Full suite: **41 tests passed** (36 original + 5 M2), final run 0.991 s.
   M2 tests cover actual-flip phase anchoring, deadlines, repeat behavior, safe
@@ -155,9 +158,36 @@ M2 verification:
 
 BBTK must own COM5 for sensitivity calibration. The operator coordinates the
 independently controlled patch with BBTK's external-patch workflow (guide section
-5), acknowledging the correct black/white prompts. There is no calibration
-handshake and the sequence is not synchronized to BBTK's own automatic patch.
+5), acknowledging the correct black/white prompts. Refocus the patch window and
+press Space for each required change, then return to BBTK. There is no calibration
+handshake or automatic sequence, and the utility cannot confirm sensor calibration.
 After calibration, disconnect/close BBTK before starting a Simon session.
+
+Manual-control revision verification (2026-10-15):
+
+- Replaced the automatic sequence with a small black/white state. Space toggles
+  only after patch placement; idle frames retain the color. Removed the timed
+  sequence's refresh-rate measurement and completion message. Initial black,
+  ruler/profile scaling, safe placement, explicit RGB values, and serial isolation
+  are retained; repositioning is available in either color.
+- Full suite: **52 tests passed**, 1.667 s. Updated M2 tests cover initial black,
+  repeated toggles, no transition before placement, persistent idle color,
+  repositioning while white, and Escape; existing geometry/profile tests pass.
+- The real PsychoPy GUI smoke passed black/white/black/white toggles, placement,
+  repositioning while white, and Escape. Black held for 11.0101 s and white for
+  11.0081 s without Space while another owned window took focus. These are test
+  waiting intervals, not automatic phase durations or physical measurements.
+  A serial-open guard was never called. No BBTK application or device was opened.
+- The ruler-only GUI smoke also passed Left/Right sizing, Return confirmation,
+  subsequent click placement, black rendering, and Simon marker color equivalence.
+- The first desktop pixel capture was affected by another open window. The
+  updated smoke captures only its own rendered backbuffer before the actual flip,
+  checking black/white RGB pixels at the center and near all four patch corners.
+  Evidence: ignored `.cache/opto_smoke.json`, `.cache/opto_smoke_black.png`, and
+  `.cache/opto_smoke_white.png`. The existing default-monitor warning remains.
+- Physical dimensions remain unmeasured in these tests (synthetic 40 px/cm).
+  Simon and diagnostic scripts, serial/trial modules, configuration, packages,
+  and dependency pins are unchanged.
 
 M2 resume commands, in the existing repository:
 

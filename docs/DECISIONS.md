@@ -73,19 +73,20 @@ installation. Installed version 2026.2.4 passed the local display smoke test.
   `testMonitor` data. Otherwise require ruler confirmation or measured px/cm.
   Profiles are read only, and gamma is not taken from them. Scale is local to the
   run; moving monitors or changing resolution/scaling requires rechecking it.
-- Anchor each ten-second phase to its actual flip and schedule transitions on
-  subsequent refreshes, without sleeps or focus-based pauses. These are host
-  display-control times, never scientific Simon RT or hardware measurements.
-  Finite refresh timing and compositor latency prevent a physical exactness claim.
+- Following the PO's manual-control request on 2026-10-15, start black and toggle
+  black/white once per Space press while this window has focus. Hold the selected
+  color indefinitely; this supersedes the original ten-second automatic sequence.
+  Apply changes in the draw/flip loop without sleeps. No host flip time is used
+  as a scientific Simon RT or hardware measurement.
 - Keep text, outline, and cursor outside the sensor's patch area. Prevent patch
-  placement from overlapping the instruction panel; lock placement while running.
+  placement from overlapping the instruction panel; allow repositioning in either color.
   Windows topmost z-order keeps the window visible while BBTK has keyboard focus,
   without persistent system settings or global keyboard hooks.
-- The utility supplies a fixed sequence, not a BBTK calibration handshake. Follow
+- The operator controls each color transition; there is no BBTK calibration handshake. Follow
   the independent-patch workflow in section 5 of the
   [official guide](https://www.blackboxtoolkit.com/docs/pdf/TPadv1r1.pdf), coordinating
-  prompts manually. Successful sensitivity calibration requires operator/device
-  evidence; the completion message confirms the visual sequence only.
+  prompts manually, refocusing the patch window for Space and returning to BBTK
+  to acknowledge prompts. Successful sensitivity calibration requires operator/device evidence.
 
 ## M2B: optical timing diagnostic (PO request, 2026-10-15)
 
