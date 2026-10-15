@@ -1,6 +1,6 @@
 r"""Run .\.venv\Scripts\python.exe tests\smoke_opto_diagnostic.py.
 
-Real display and all ten unchanged Simon timelines, with explicitly synthetic
+Real display and ten marker-only white/black pulses, with explicitly synthetic
 505 ms serial pulses and one additional 2 ms activation. Never opens a device.
 """
 
@@ -8,7 +8,7 @@ import json
 from pathlib import Path
 import sys
 import time
-from unittest.mock import patch
+from unittest.mock import Mock, patch
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 import opto_diagnostic as diagnostic
@@ -60,11 +60,13 @@ def main():
             self.wait_calls = 0
             files.metadata.update(simulation=True, hardware_validation="Synthetic GUI smoke; no physical T-Pad test")
             super().__init__(config, files)
+            self.stimulus.draw = Mock(side_effect=AssertionError("Colored stimuli must not be drawn"))
+            self.fixation.draw = Mock(side_effect=AssertionError("Fixation must not be drawn"))
             windows.append(self)
 
         def draw(self, phase, trial=None):
             super().draw(phase, trial)
-            white = phase == "stimulus"
+            white = phase == "white"
             if white and not self.previous_white:
                 self.white_frames.append(0)
                 self.window.callOnFlip(device.optical, "P")
@@ -105,6 +107,8 @@ def main():
     assert run["additional_short_activations"] == 1
     assert run["duration"]["mean_ms"] == 505
     assert windows[0].white_frames == [frame_count(500, windows[0].refresh_hz)] * 10
+    windows[0].stimulus.draw.assert_not_called()
+    windows[0].fixation.draw.assert_not_called()
     assert device.writes.count(b"MOD5\n") == 1
     assert all(command in (b"X", b"FIRM\n", b"MOD5\n", b"T") for command in device.writes)
     durations = [row["offset_flip_host_s"] - row["stimulus_flip_host_s"] for row in run["presentations"]]

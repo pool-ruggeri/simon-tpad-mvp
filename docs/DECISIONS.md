@@ -89,13 +89,19 @@ installation. Installed version 2026.2.4 passed the local display smoke test.
 
 ## M2B: optical timing diagnostic (PO request, 2026-10-15)
 
-- `opto_diagnostic.py` imports and reuses the actual Simon `Presentation`,
-  `present_trial`, `Trial`, `events_for_trial`, and `TPadReader`. No original
-  experiment or M2 calibration code is changed. Use the Simon marker, not M2's
-  physically sized calibration patch. No new dependencies are introduced.
-- Preserve the full fixed timeline, including the black remainder of the nominal
-  response phase, inter-trial black interval, and bounded drain. Draw the same
-  blue/left stimulus through the existing presenter; no button response is needed.
+- After the PO's clarification on 2026-10-15, this is a marker-only transition
+  diagnostic: ten cycles of 500 ms white and 500 ms black. No colored stimulus,
+  fixation, or response window is drawn or scheduled. This supersedes the initial
+  reuse of the full Simon timeline in commit `75aa940`.
+- Reuse `Presentation` for marker geometry/display setup and serial/keyboard
+  acquisition, plus `events_for_trial` for hardware boundaries. The diagnostic's
+  simple `present_pulse` loop draws only white/black and uses a small timing-only
+  `PulsePresentation` record. The Simon task, calibration utility, shared serial
+  reader, configuration, and dependencies remain unchanged. The optical marker
+  retains Simon's dimensions/position/colors, rather than M2's 4 cm geometry.
+- Poll throughout the black interval, query its hardware boundary, and checkpoint
+  on black. Query/saving overhead may extend black but never controls white offset.
+  Add a final black grace interval to collect late messages after pulse ten.
 - Enter Mode 5 once after the first Space; keep the connection and clock across
   repetitions. Keep only the existing command allowlist. Read-only hardware timer
   boundaries associate pulses without ordinal event matching or clock mixing.

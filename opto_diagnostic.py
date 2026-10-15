@@ -1,8 +1,8 @@
-"""Ten-presentation Opto 1 diagnostic using the unchanged Simon presenter."""
+"""Opto 1 timing diagnostic: ten white/black marker pulses."""
 
 import argparse
 import csv
-from dataclasses import asdict, fields
+from dataclasses import asdict, dataclass, field, fields
 from datetime import datetime, timezone
 import json
 import os
@@ -13,13 +13,64 @@ import time
 import uuid
 
 from run_simon import (ROOT, OperatorAbort, Presentation, atomic_json, load_config,
-                       package_version, present_trial, software_revision)
+                       package_version, software_revision)
 from tpad_serial import Event, SerialFailure, TPadReader
-from trial_logic import Trial, events_for_trial
+from trial_logic import events_for_trial, frame_count
 
 EXPECTED_PULSES = 10
-INTRO = ("Opto Diagnostic — Position Opto 1 over the Simon Task optical marker. "
-         "Press SPACE to start 10 stimulus presentations. Press ESC to quit.")
+INTRO = ("Opto Diagnostic — Position Opto 1 over the optical marker. "
+         "Press SPACE to start 10 white/black pulses. Press ESC to quit.")
+
+
+@dataclass
+class PulsePresentation:
+    """Only the timing and acquisition records needed for one marker pulse."""
+
+    number: int
+    lower_ms: int | None = None
+    upper_ms: int | None = None
+    lower_sequence: int | None = None
+    upper_sequence: int | None = None
+    stimulus_flip_host_s: float | None = None
+    offset_flip_host_s: float | None = None
+    finalized_host_ns: int | None = None
+    completed: bool = False
+    issues: list[str] = field(default_factory=list)
+
+
+def present_pulse(ui, pulse, config):
+    """White for 500 ms in whole frames, then black; serial never ends white."""
+    lower = ui.timer_sample(config["setup_timeout_ms"])
+    pulse.lower_ms, pulse.lower_sequence = lower.tpad_ms, lower.sequence
+    white_frames = frame_count(config["stimulus_ms"], ui.refresh_hz)
+    flips = []
+    for index in range(white_frames + 1):
+        ui.pump()
+        ui.draw("white" if index < white_frames else "black")
+        flip = ui.window.flip()
+        flips.append(flip)
+        if index == 0:
+            pulse.stimulus_flip_host_s = flip
+        if index == white_frames:
+            pulse.offset_flip_host_s = flip
+    if any(b - a > 1.5 / ui.refresh_hz for a, b in zip(flips, flips[1:])):
+        pulse.issues.append("dropped_visual_frame")
+    # Poll throughout the black interval. Boundary queries and saving happen
+    # only while black and can extend that interval, never the white pulse.
+    ui.black_frames(frame_count(config["black_interval_ms"], ui.refresh_hz))
+    upper = ui.timer_sample(config["drain_grace_ms"])
+    pulse.upper_ms, pulse.upper_sequence = upper.tpad_ms, upper.sequence
+    ui.reader.poll()
+    if ui.reader.parser.buffer:
+        pulse.issues.append("unresolved_serial_fragment")
+    if ui.reader.connection.in_waiting:
+        pulse.issues.append("undrained_serial_backlog")
+    if any(lower.sequence < sequence <= ui.reader.parser.sequence for sequence in ui.reader.issue_sequences):
+        pulse.issues.append("unrecognized_serial_data")
+    if ("C", 1) in ui.reader.active:
+        pulse.issues.append("optical_active_after_pulse")
+    pulse.finalized_host_ns = time.perf_counter_ns()
+    pulse.completed = True
 
 
 def describe(values):
@@ -170,7 +221,11 @@ class DiagnosticFiles:
         self.event_writer.writeheader()
         self.runs, self.short_ms, self.nominal_ms = [], short_ms, config["stimulus_ms"]
         self.start_sequence = 0
-        self.metadata = {"session_id": self.session_id, "status": "initializing", "parameters": config,
+        parameters = {name: config[name] for name in (
+            "serial_port", "expected_firmware", "stimulus_ms", "black_interval_ms", "drain_grace_ms",
+            "setup_timeout_ms", "full_screen", "screen", "window_size", "marker_size_px", "marker_margin_px")}
+        self.metadata = {"session_id": self.session_id, "status": "initializing", "parameters": parameters,
+                         "presentation_protocol": "marker_only_white_black",
                          "software_revision": software_revision(), "python_version": sys.version,
                          "psychopy_version": package_version("psychopy"), "pyserial_version": package_version("pyserial"),
                          "firmware_expected": config["expected_firmware"], "firmware_observed": None,
@@ -224,7 +279,7 @@ def number(value):
 
 
 class DiagnosticWindow(Presentation):
-    """Use the original marker, draw method, setup, and keyboard/serial polling."""
+    """Reuse marker geometry/setup; draw only that marker and diagnostic text."""
 
     def __init__(self, config, files):
         self.files, self.waiting, self.last_timer = files, True, None
@@ -316,8 +371,10 @@ class DiagnosticWindow(Presentation):
         self.panel.text = "\n".join(lines)
 
     def draw(self, phase, trial=None):
-        super().draw("black" if phase == "instructions" else phase, trial)
-        self.white_visible = phase == "stimulus"
+        self.marker.fillColor = "white" if phase == "white" else "black"
+        self.marker.lineColor = self.marker.fillColor
+        self.marker.draw()
+        self.white_visible = phase == "white"
         if self.waiting and self.preview is not None:
             self.preview.draw()
         if self.panel is not None:
@@ -354,15 +411,16 @@ def run(config, output_root, short_ms=10):
                 files.start_sequence = reader.parser.sequence
                 files.metadata["analysis_start_sequence"] = files.start_sequence
             active_run = {"number": len(files.runs) + 1, "status": "running",
-                          "trials": [Trial(i, "opto_diagnostic", "blue", "left") for i in range(1, 11)]}
+                          "trials": [PulsePresentation(i) for i in range(1, EXPECTED_PULSES + 1)]}
             files.runs.append(active_run)
             files.metadata["status"] = "running"
             for trial in active_run["trials"]:
-                present_trial(ui, trial, config)
+                present_pulse(ui, trial, config)
                 if trial.upper_ms <= trial.lower_ms:
                     files.metadata["clock_uncertain"] = True
                     raise SerialFailure("Hardware timer did not advance across the presentation.")
                 files.checkpoint(reader.events)
+            ui.black_frames(frame_count(config["drain_grace_ms"], ui.refresh_hz))
             end = ui.timer_sample(config["setup_timeout_ms"])
             active_run["end_boundary"] = (end.tpad_ms, end.sequence)
             active_run["status"] = "completed"
@@ -414,13 +472,13 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--config", type=Path, default=ROOT / "config.json")
     parser.add_argument("--port", help="Override the serial port (default from config.json: COM5).")
-    parser.add_argument("--windowed", action="store_true", help="Initial GUI checks; full screen matches Simon by default.")
+    parser.add_argument("--windowed", action="store_true", help="Use a window instead of the configured full-screen display.")
     parser.add_argument("--short-pulse-ms", type=int, default=10, help="Separate additional activations at or below this hardware duration.")
     parser.add_argument("--output-dir", type=Path, default=ROOT / "output" / "opto_diagnostics")
     args = parser.parse_args()
     config = load_config(args.config)
     if config["stimulus_ms"] != 500:
-        parser.error("This milestone requires the Simon configuration's nominal 500 ms stimulus duration.")
+        parser.error("The optical diagnostic requires a nominal 500 ms white pulse.")
     if not 0 < args.short_pulse_ms < config["stimulus_ms"]:
         parser.error("short-pulse-ms must be between 1 and stimulus_ms - 1.")
     if args.port:

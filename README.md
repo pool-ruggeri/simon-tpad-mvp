@@ -100,14 +100,14 @@ is free. Run:
 .\.venv\Scripts\python.exe opto_diagnostic.py
 ```
 
-Place Opto 1 inside the outlined preview of the **actual Simon marker**. Space
-starts ten presentations, then shows results with the marker black. Space repeats;
-Escape saves and exits. No button responses are required. This directly reuses
-the Simon `Presentation`, marker drawing, and `present_trial` timeline: default
-80 px lower-left marker, 500 ms fixation, 500 ms white, the remainder of the fixed
-1500 ms response phase, black interval, and bounded serial grace. The normal blue
-left stimulus is also drawn by that unchanged presenter. This is not M2's 4 cm
-calibration patch. Full-screen/display configuration comes from `config.json`.
+Place Opto 1 inside the outlined preview of the marker. Space starts ten cycles
+of **500 ms white, then 500 ms black**, then shows results with the marker black.
+Space repeats; Escape saves and exits. Only the optical square changes color:
+there are no colored stimuli, fixation crosses, response windows, or required
+button responses. The default marker is the same 80 px lower-left square used
+by Simon, rather than M2's 4 cm patch. Display settings come from `config.json`.
+Timer queries and saving can extend black intervals; they never end a white pulse.
+An extra black drain interval after the last pulse collects delayed serial data.
 
 ```powershell
 .\.venv\Scripts\python.exe opto_diagnostic.py --port COM5 --windowed

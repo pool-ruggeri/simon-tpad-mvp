@@ -22,6 +22,9 @@ timing after the operator calibrates sensitivity separately in the BBTK app.
   M2B adds `opto_diagnostic.py` and focused tests/documentation; Simon and M2 source,
   shared serial/trial modules, configuration, dependencies, and old tests remain
   unchanged. Current M2B revision is repository HEAD (resolve below).
+- M2B initial implementation: `75aa94021e79c794a37f83f75f2eb1519a9e9ec2`.
+  The PO subsequently simplified its presentation to optical white/black pulses
+  only; the current revision supersedes that commit's full Simon timeline.
 - Current repository revision: `HEAD`; resolve with the commands below.
 - Git author: `paolo ruggeri <paolo@mailtrial.com>`, supplied by the PO and
   configured only in this repository.
@@ -174,14 +177,17 @@ remains unchanged.
 
 ## M2B implementation and verification (2026-10-15)
 
-`opto_diagnostic.py` directly reuses the original `Presentation`, `present_trial`,
-`Trial`, `events_for_trial`, and `TPadReader`. The exact Simon marker is used:
+`opto_diagnostic.py` reuses `Presentation` for display/marker setup and acquisition,
+plus `events_for_trial` and `TPadReader`. The exact Simon marker is used:
 default 80 x 80 drawing pixels, lower-left 20 px margin, named black/white in
 `rgb`; in a 1024 x 768 window its center is (-452, -324). Window/display settings
-come from config.json, with full screen by default. The original blue/left circle
-is drawn by the shared presenter; no button response is required. The 4 cm M2
-patch is not substituted. The complete fixed Simon frame timeline, black interval,
-hardware timer queries, and bounded drain are reused without changing their code.
+come from config.json, with full screen by default. Following the PO clarification,
+only the square alternates: 500 ms white then 500 ms black, repeated ten times.
+No colored circle, fixation, or response window is drawn or scheduled. The
+diagnostic uses a short `present_pulse` frame loop and timing-only
+`PulsePresentation` records. The 4 cm M2 patch is not substituted. Hardware queries
+and saving occur on black and may extend it; white duration remains frame-based
+and independent of serial events. A final black grace collects delayed events.
 
 The operator sees the requested instruction and an outline around the black
 marker, presses Space for ten presentations, reviews the results, and presses
@@ -212,7 +218,7 @@ hardware milliseconds, with population SD; flip/arrival times never enter those
 differences. Raw per-pulse differences remain visible but invalid if clock timing
 becomes uncertain. No automatic hardware pass/fail is inferred.
 
-M2B evidence:
+Initial M2B evidence at `75aa940` (the full presentation loop is now superseded):
 
 - Full suite: **52 tests passed** (41 existing + 11 diagnostic tests), including
   existing optical parsing, partial messages, hardware duration calculations,
@@ -241,6 +247,21 @@ M2B evidence:
 - Actual T-Pad detection, timer-reply ordering/latency, optical scanout/thresholds,
   and physiological TTL remain unverified. The smoke does not connect to the
   T-Pad and cannot establish sensor or EEG acceptance.
+
+PO clarification verification:
+
+- Full suite: 52 tests passed, including the replacement test asserting only
+  white/black phases, 500 ms white duration, and independence from button events.
+- The GUI smoke now fails if the original colored stimulus or fixation is drawn.
+  It retains the explicit synthetic serial guard and ten-pulse analysis checks.
+  The updated smoke passed: ten marker-only pulses, 30 white frames each at
+  59.9809 Hz, white flip intervals 499.8541–502.2521 ms, and no white-phase frame
+  warnings. Ten full synthetic pulses and one additional 2 ms activation were
+  correctly reported. This remains simulated serial evidence, not hardware validation.
+- Compilation and CLI checks passed. The latest evidence is in ignored
+  `.cache/opto_diagnostic_smoke/evidence.json` and its timestamped session folder.
+- Simon and M2 calibration source, shared serial/trial code, configuration,
+  environment, and dependency pins remain unchanged. The launch command is the same.
 
 Resume M2B in the repository:
 

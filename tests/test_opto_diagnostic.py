@@ -7,12 +7,11 @@ import unittest
 from unittest.mock import patch
 
 import opto_diagnostic as diagnostic
-from opto_diagnostic import DiagnosticFiles, analyze, pair_optical_events
-from run_simon import load_config, present_trial
+from opto_diagnostic import DiagnosticFiles, PulsePresentation, analyze, pair_optical_events, present_pulse
+from run_simon import load_config
 from test_runner import FakePresentation
 from test_tpad_serial import FakeSerial
 from tpad_serial import Message, SerialFailure, TPadReader
-from trial_logic import Trial
 
 
 def read_events(wire):
@@ -22,7 +21,7 @@ def read_events(wire):
 
 
 def make_run(count=3):
-    trials = [Trial(i + 1, "opto_diagnostic", "blue", "left",
+    trials = [PulsePresentation(i + 1,
                     lower_ms=i * 3000 + 500, upper_ms=i * 3000 + 2900,
                     lower_sequence=0, upper_sequence=100000,
                     stimulus_flip_host_s=999999 + i, offset_flip_host_s=999999.5 + i,
@@ -101,17 +100,15 @@ class OptoDiagnosticTests(unittest.TestCase):
         result = analyze(read_events(b"C P 1 1000\nC R 1 1505\n"), [run])
         self.assertEqual(result["runs"][0]["presentations"][0]["association"], "ambiguous")
 
-    def test_actual_simon_frame_schedule_is_reused_without_event_driven_offset(self):
+    def test_only_white_black_pulses_without_fixation_or_response_window(self):
         config = load_config(diagnostic.ROOT / "config.json")
-        for press in (None, 31):
+        for press in (None, 1, 10):
             ui = FakePresentation(config, press_frame=press)
-            trial = Trial(1, "opto_diagnostic", "blue", "left")
-            with patch("run_simon.time.perf_counter", side_effect=[0, 1]):
-                present_trial(ui, trial, config)
-            self.assertEqual(ui.phases[:30], ["fixation"] * 30)
-            self.assertEqual(ui.phases[30:60], ["stimulus"] * 30)
-            self.assertEqual(ui.phases[60:120], ["response"] * 60)
+            trial = PulsePresentation(1)
+            present_pulse(ui, trial, config)
+            self.assertEqual(ui.phases, ["white"] * 30 + ["black"] * 31)
             self.assertAlmostEqual(trial.offset_flip_host_s - trial.stimulus_flip_host_s, 0.5)
+            self.assertTrue(trial.completed)
 
     def test_four_diagnostic_files_preserve_short_events_and_raw_content(self):
         config = load_config(diagnostic.ROOT / "config.json")
@@ -164,7 +161,7 @@ class OptoDiagnosticTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as root:
             with patch.object(diagnostic, "DiagnosticWindow", FakeUI), \
                     patch.object(TPadReader, "open", side_effect=lambda port, raw, event: TPadReader(FakeSerial(), raw, event)) as opened, \
-                    patch.object(diagnostic, "present_trial", side_effect=collect):
+                    patch.object(diagnostic, "present_pulse", side_effect=collect):
                 self.assertEqual(diagnostic.run(config, root), 0)
             summary = json.loads(next(Path(root).glob("*/summary.json")).read_text(encoding="utf-8"))
             self.assertEqual([run["matched_presentations"] for run in summary["runs"]], [10, 10])
@@ -198,7 +195,7 @@ class OptoDiagnosticTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as root:
             with patch.object(diagnostic, "DiagnosticWindow", FakeUI), \
                     patch.object(TPadReader, "open", side_effect=lambda port, raw, event: TPadReader(FakeSerial(), raw, event)), \
-                    patch.object(diagnostic, "present_trial", side_effect=collect):
+                    patch.object(diagnostic, "present_pulse", side_effect=collect):
                 self.assertEqual(diagnostic.run(config, root), 1)
             directory = next(Path(root).iterdir())
             summary = json.loads((directory / "summary.json").read_text(encoding="utf-8"))
