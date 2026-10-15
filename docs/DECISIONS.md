@@ -58,6 +58,35 @@ not adopted because the approved architecture requires uninterrupted rendering.
 documents Python 3.11 support beginning with PsychoPy 2026.2.0 and library-only
 installation. Installed version 2026.2.4 passed the local display smoke test.
 
+## M2: standalone optical calibration patch (PO request, 2026-10-15)
+
+- Add `calibrate_opto.py` as a standalone visual utility. It does not import the
+  Simon runner, open serial, set a device mode, reset a timer, send TTL, adjust
+  sensitivity, or launch the experiment. The operator uses the separate BBTK app
+  for sensitivity calibration; that application must have exclusive serial access.
+- Explicitly use the Simon marker's `rgb` endpoints: black `(-1, -1, -1)` and
+  white `(1, 1, 1)`. Preserve pyglet, pixel coordinates, black window background,
+  synchronized flips, and default color/gamma pipeline. Read the existing
+  configured display index/window size; force windowed presentation only here.
+- Use calibrated monitor width/resolution for geometry when an unambiguous,
+  non-default profile matches the display. Do not trust the existing default
+  `testMonitor` data. Otherwise require ruler confirmation or measured px/cm.
+  Profiles are read only, and gamma is not taken from them. Scale is local to the
+  run; moving monitors or changing resolution/scaling requires rechecking it.
+- Anchor each ten-second phase to its actual flip and schedule transitions on
+  subsequent refreshes, without sleeps or focus-based pauses. These are host
+  display-control times, never scientific Simon RT or hardware measurements.
+  Finite refresh timing and compositor latency prevent a physical exactness claim.
+- Keep text, outline, and cursor outside the sensor's patch area. Prevent patch
+  placement from overlapping the instruction panel; lock placement while running.
+  Windows topmost z-order keeps the window visible while BBTK has keyboard focus,
+  without persistent system settings or global keyboard hooks.
+- The utility supplies a fixed sequence, not a BBTK calibration handshake. Follow
+  the independent-patch workflow in section 5 of the
+  [official guide](https://www.blackboxtoolkit.com/docs/pdf/TPadv1r1.pdf), coordinating
+  prompts manually. Successful sensitivity calibration requires operator/device
+  evidence; the completion message confirms the visual sequence only.
+
 ## Deferred work
 
 Real device/optical acceptance comes next. Electrical TTL interface qualification

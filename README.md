@@ -34,6 +34,63 @@ instructions and starts each block. Escape exits and saves collected data.
 During trials use only T-Pad Buttons 1 and 2. Buttons 3 and 4 are recorded but do
 not count as Simon responses. The T-Pad keyboard HID interface is not used.
 
+## Standalone optical calibration patch (M2)
+
+```powershell
+.\.venv\Scripts\python.exe calibrate_opto.py
+```
+
+The utility matches the Simon marker's `rgb` black `(-1, -1, -1)` and white
+`(1, 1, 1)`, pyglet backend, and synchronized flips. It reads display size/index
+from `config.json` and keeps its window visible when BBTK has keyboard focus.
+
+Only default `testMonitor` profiles were found on this PC; their dimensions are
+not accepted as a physical calibration. First use a ruler and Left/Right to make
+the displayed reference square **4 cm on both sides**, measuring between border
+line centers; Return confirms the scale for this run. Then click below the
+instructions to create the black patch, or click again to reposition it. Border
+clicks are clamped so the whole patch remains inside the window and away from
+instructions. Keep the sensor inside the patch, away from its external outline.
+
+Space starts **10 seconds black → 10 seconds white → black**, automatically.
+Space repeats; Escape closes when this window has keyboard focus. Placement is
+locked during the sequence. Focus changes do not pause it. Text and cursor stay
+outside the sensor area.
+
+If the physical scale is already measured, specify drawing pixels per centimeter:
+
+```powershell
+.\.venv\Scripts\python.exe calibrate_opto.py --pixels-per-cm 40
+```
+
+**40 is an example, not a measurement of this monitor.** An unambiguous calibrated
+PsychoPy profile matching the display can supply geometry; `--monitor NAME`
+selects a profile. Ambiguous/default profiles or high-DPI scaling require a ruler
+or measured px/cm. Check both physical sides again after moving monitors or
+changing scaling/resolution. Scale is not saved globally; pixel rounding limits
+size precision.
+
+To use BBTK, stop the Simon Task and other COM5 owners, then connect to COM5 in
+the official BBTK Configuration & Test application. **The serial port must be
+available to BBTK.** This patch utility never opens it or sends device commands.
+For an independently controlled patch, follow the external-patch sensitivity
+procedure in [section 5 of the T-Pad guide](https://www.blackboxtoolkit.com/docs/pdf/TPadv1r1.pdf):
+use BBTK's “Adj. To Another Device” workflow and acknowledge prompts during the
+matching patch phases. Repeat if necessary. There is no handshake or confirmation
+of sensor calibration; the completion message confirms the visual sequence only.
+BBTK's same-PC automatic routine controls its own patch. All sensitivity changes
+are made by the operator in BBTK. Close/disconnect BBTK before a Simon session.
+
+Ten-second targets start at the actual black/white flips, with no sleeps.
+Refresh/compositor timing limits physical precision. No serial connection,
+tPAD mode/timer/TTL changes, or Simon launch occur in this utility.
+
+For an automatically closing GUI smoke check (synthetic size, no sensor calibration):
+
+```powershell
+.\.venv\Scripts\python.exe tests\smoke_calibrate_opto.py
+```
+
 ## Recreate the isolated environment
 
 Verified interpreter: 64-bit CPython 3.11.9. PsychoPy 2026.2.4 supports Python
