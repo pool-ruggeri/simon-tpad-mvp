@@ -68,13 +68,20 @@ connection supplies behavioral responses. Future HID redundancy is unimplemented
 
 ## M3: publication and Windows deployment (2026-10-15)
 
-- Intended repository: **PRIVATE**
+- Published repository: **PRIVATE**
   [pool-ruggeri/simon-tpad-mvp](https://github.com/pool-ruggeri/simon-tpad-mvp).
   The PO selected `pool-ruggeri`; the unrelated `hippolytefournier` PC credentials
   must not determine repository ownership. The official portable GitHub CLI was
   authenticated as `pool-ruggeri`, with credentials in the Windows keyring and
-  no global Git credential-helper change. Publication is in progress; do not
-  infer a completed push from this planned URL.
+  no global Git credential-helper change. A repository-local helper uses that
+  CLI/keyring so the PC's unrelated account is not used for this origin.
+- Created `origin`, pushed main and its full history normally, and verified
+  PRIVATE visibility and default branch `main`. The first published source
+  revision was `cded7d8bb56280f98c47025f89b1e3663dfc0c6d`; Git's remote reference
+  and GitHub's commits API both matched it. The remote tree matched all 27 local
+  tracked files, with no generated data/archives/environments/vendor binaries.
+  The final documentation revision remains `main/HEAD`; compare it using the
+  commands below. No history was rewritten or force-pushed.
 - Branch: `main`. Starting HEAD: `53b648516eb3d8202b59f2180a9b245ba177439f`.
   The publication revision is the final `HEAD`; resolve with `git rev-parse HEAD`
   and compare to `git ls-remote origin refs/heads/main`. History is preserved.
@@ -85,6 +92,10 @@ connection supplies behavioral responses. Future HID redundancy is unimplemented
   Evidence: ignored `.cache/publication_audit.json`. `.gitignore` now excludes all
   output/results, data/recordings, EEG formats, archives, virtual environments,
   caches, private keys and editor/machine settings. No local data was deleted.
+- Repeated the history scan immediately before publication: eight commits,
+  54 historical blobs, 27 tracked files; no excluded paths, binary blobs or
+  credential-pattern matches. Publication evidence is recorded in ignored
+  `.cache/m3_publication_evidence.json` and checked again after the final push.
 - Added `setup_windows.ps1`, `requirements-bootstrap.txt`, and three `launch_*.ps1`
   wrappers. Setup requires CPython 3.11.9 x64, creates only a new clone-local
   `.venv`, installs the unchanged runtime lock plus pinned packaging tools, and
@@ -420,7 +431,7 @@ No known unresolved software test failures. Remaining qualification/limits:
 
 ## Next milestone
 
-Complete/verify M3 private publication as recorded above. On each new PC, repeat
+M3 private publication and same-PC clean installation are complete. On each new PC, repeat
 docs/HARDWARE_VALIDATION.md and retain actual session IDs/raw logs
 and display/timing/abort evidence. Preserve the PO's reported laboratory successes;
 next qualify saved BioSemi BDF events/timing, physical marker scanout and the
@@ -433,6 +444,9 @@ policy only under a separately authorized scientific change.
 Set-Location 'C:\Users\pruggeri\Documents\EXPERIMENTS\GABRIEL_PAOLO'
 git -c safe.directory=C:/Users/pruggeri/Documents/EXPERIMENTS/GABRIEL_PAOLO status --short --branch
 git -c safe.directory=C:/Users/pruggeri/Documents/EXPERIMENTS/GABRIEL_PAOLO log -1 --format='%H %s'
+git -c safe.directory=C:/Users/pruggeri/Documents/EXPERIMENTS/GABRIEL_PAOLO remote -v
+git -c safe.directory=C:/Users/pruggeri/Documents/EXPERIMENTS/GABRIEL_PAOLO ls-remote origin refs/heads/main
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\setup_windows.ps1 -VerifyOnly
 .\.venv\Scripts\python.exe -m pip check
 .\.venv\Scripts\python.exe -m unittest discover -s tests -v
 .\.venv\Scripts\python.exe run_simon.py --gui-smoke

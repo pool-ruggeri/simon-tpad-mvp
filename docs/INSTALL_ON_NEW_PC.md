@@ -91,7 +91,12 @@ py -3.11-64 -c "import sys, struct; assert sys.version_info[:3] == (3, 11, 9) an
 py -3.11-64 -m venv .venv
 .\.venv\Scripts\python.exe -m pip install --disable-pip-version-check -r requirements-bootstrap.txt
 .\.venv\Scripts\python.exe -m pip install --disable-pip-version-check -r requirements-lock.txt
-powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\setup_windows.ps1 -VerifyOnly
+.\.venv\Scripts\python.exe -m pip check
+.\.venv\Scripts\python.exe -c "import calibrate_opto; calibrate_opto.load_psychopy(); import run_simon, opto_diagnostic, serial; print('Application and PsychoPy imports passed')"
+.\.venv\Scripts\python.exe run_simon.py --help
+.\.venv\Scripts\python.exe calibrate_opto.py --help
+.\.venv\Scripts\python.exe opto_diagnostic.py --help
+.\.venv\Scripts\python.exe -m unittest discover -s tests -v
 ```
 
 Stop at any failed command. For an interrupted setup that left `.venv`, inspect
