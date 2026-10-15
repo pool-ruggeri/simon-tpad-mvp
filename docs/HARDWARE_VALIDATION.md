@@ -1,9 +1,13 @@
 # Manual hardware validation
 
-Current evidence: software tests and a PsychoPy display smoke test pass.
-COM5 is enumerated locally. No serial connection was opened during that smoke
-test; firmware, response buttons, optics, and TTL were not measured by it.
-The PO reported firmware `20250809`, FTDI latency 1 ms, and working serial I/O.
+Software tests and PsychoPy display smoke checks pass. In the M3 instructions,
+the PO reports repeated successful Simon sessions, four-button serial acquisition,
+hardware RT checks, a 10/10 optical diagnostic, and BioSemi TTL activity visible
+in ActiView. These reports were not independently repeated during publication.
+Saved-BDF event/timing validation and the OpenBCI branch remain pending. The
+reference firmware is `20250809`, with FTDI latency 1 ms; use the actual local COM
+port rather than assuming the reference PC's COM5. See
+[INSTALL_ON_NEW_PC.md](INSTALL_ON_NEW_PC.md) for configuration and prerequisites.
 
 ## Behavioral acceptance without EEG
 
@@ -99,6 +103,7 @@ alignment or hardware design.
 Record operator, date, session IDs, software commit, firmware observed, display
 geometry/refresh, raw-log examples, invalid-trial explanations, and measured
 timing results. State behavioral acceptance and EEG/electrical qualification as
-separate outcomes. Until that evidence exists, both remain unverified.
+separate outcomes. Preserve the PO-reported observations above and distinguish
+them from documented saved-file/electrical qualification; the latter remains pending.
 
 Reference: [official T-Pad guide](https://www.blackboxtoolkit.com/docs/pdf/TPadv1r1.pdf).

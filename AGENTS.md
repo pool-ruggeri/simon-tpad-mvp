@@ -18,6 +18,8 @@ reports, and commits. Follow PO-001 through PO-005 in docs/DECISIONS.md.
 - Update docs/PROJECT_HANDOFF.md with changes, evidence, limitations, and resume commands.
 - Run `.\.venv\Scripts\python.exe -m unittest discover -s tests -v`.
   Hardware validation requires direct evidence.
-- Local commits are authorized. Use the PO-supplied or existing identity. Do not create
-  remotes, publish repositories, push, or modify another repository.
+- Local commits are authorized. Use the PO-supplied or existing identity. The PO's M3
+  request authorizes creation of PRIVATE `pool-ruggeri/simon-tpad-mvp`, adding origin,
+  and pushing main with its existing history after publication checks. Do not publish
+  data/secrets, force-push, change visibility, or modify unrelated repositories.
 - Do not spawn sub-agents unless the user explicitly requests delegation.

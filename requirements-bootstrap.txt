@@ -1,0 +1,4 @@
+# Packaging tools in the reference .venv; install only inside the new .venv.
+pip==24.0
+setuptools==65.5.0
+wheel==0.48.0

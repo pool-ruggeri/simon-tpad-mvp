@@ -128,6 +128,37 @@ installation. Installed version 2026.2.4 passed the local display smoke test.
   optical events, including events outside scheduled windows, unpaired edges,
   and short activations. Checkpoint only on black screens and again on shutdown.
 
+## M3: private publication and Windows deployment (PO request, 2026-10-15)
+
+- The M3 request supersedes the previous local-only publication restriction for
+  PRIVATE `pool-ruggeri/simon-tpad-mvp`. The PO explicitly selected `pool-ruggeri`
+  after the connected integration and PC credential manager showed different
+  accounts. Preserve all history, push main normally, and never force-push or
+  overwrite an occupied repository. Authentication is handled by GitHub tooling,
+  with no tokens in project files.
+- Publish source/tests/templates/docs only. Ignore all generated output/results,
+  EEG recordings, archives, environments, caches and machine-specific settings.
+  Audit the complete reachable history before publishing; stop for sensitive
+  historical content rather than rewriting it without authorization.
+- Require CPython 3.11.9 x64 on Windows for the reproducible reference setup.
+  Pin packaging tools separately from the unchanged runtime lock. Setup creates
+  only the clone's `.venv`; an existing one is preserved and can be checked with
+  `-VerifyOnly`. Do not install prerequisites or change drivers/system settings.
+- Three thin PowerShell wrappers invoke the existing applications and forward
+  arguments. COM portability uses the existing complete `--config` JSON option
+  (ignored `local_config.json`), plus the diagnostic's existing `--port` override.
+  No scientific application, acquisition, or scoring code changes are required.
+- The PO reports repeated Simon sessions, four-button serial checks, hardware RT
+  checks, ten detected diagnostic pulses, and ActiView TTL visibility. These are
+  PO-reported laboratory observations, not independently repeated M3 measurements.
+  Saved BioSemi BDF verification, OpenBCI electrical/interface validation, physical
+  scanout measurements and full scientific qualification remain pending.
+- The approved first-complete/correctly-timed optical-pulse selection policy is
+  not implemented in Simon scoring. It still requires one ON/OFF pair and
+  invalidates extra edges. The diagnostic separates short activations but does
+  not choose the first of multiple full candidates. Record this gap; defer any
+  scoring implementation to a separately authorized scientific change.
+
 ## Deferred work
 
 Real device/optical acceptance comes next. Electrical TTL interface qualification

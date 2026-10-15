@@ -6,8 +6,10 @@ AGENTS.md before making changes. Updated 2026-10-15 (Europe/Zurich).
 ## Current status and repository
 
 The initial MVP, M2 optical calibration patch, and M2B optical timing diagnostic
-are implemented. Software evidence is recorded below; real T-Pad behavioral
-acceptance and physical/EEG qualification remain outstanding. M2 supplies a visual
+are implemented. The PO now reports repeated Simon sessions, four-button serial
+acquisition, hardware RT checks, ten detected diagnostic pulses and BioSemi TTL
+activity visible in ActiView. Saved-BDF event/timing verification, the OpenBCI
+branch and full scientific qualification remain outstanding. M2 supplies a visual
 patch only; M2B reuses the actual Simon marker and serial acquisition to check
 timing after the operator calibrates sensitivity separately in the BBTK app.
 
@@ -29,8 +31,11 @@ timing after the operator calibrates sensitivity separately in the BBTK app.
 - Current repository revision: `HEAD`; resolve with the commands below.
 - Git author: `paolo ruggeri <paolo@mailtrial.com>`, supplied by the PO and
   configured only in this repository.
-- No remotes, GitHub repositories, pushes, firmware updates, driver changes,
-  Windows settings changes, or global package modifications.
+- M3 authorizes PRIVATE https://github.com/pool-ruggeri/simon-tpad-mvp and normal
+  publication of main with its complete history. Publication progress/evidence
+  is recorded in the M3 section below; prior no-remote statements are historical.
+- No firmware updates, driver changes, persistent Windows settings changes,
+  or global package modifications.
 
 The sandbox-created repository has a different Windows owner from the normal
 user account. Use a per-command `safe.directory` option for Git if it reports
@@ -60,6 +65,59 @@ connection supplies behavioral responses. Future HID redundancy is unimplemented
   durations, grace, and seed. `requirements-lock.txt`: verified runtime environment.
 - README and manual validation procedure: installation, operation, data fields,
   scientific limits, and separate hardware/EEG qualification.
+
+## M3: publication and Windows deployment (2026-10-15)
+
+- Intended repository: **PRIVATE**
+  [pool-ruggeri/simon-tpad-mvp](https://github.com/pool-ruggeri/simon-tpad-mvp).
+  The PO selected `pool-ruggeri`; the unrelated `hippolytefournier` PC credentials
+  must not determine repository ownership. Authentication/publication is in
+  progress; do not infer a completed push from this planned URL.
+- Branch: `main`. Starting HEAD: `53b648516eb3d8202b59f2180a9b245ba177439f`.
+  The publication revision is the final `HEAD`; resolve with `git rev-parse HEAD`
+  and compare to `git ls-remote origin refs/heads/main`. History is preserved.
+- Reviewed all 21 tracked files and all six commits/41 historical blobs at the
+  starting revision. No data, vendor binaries, excluded paths or credential
+  pattern matches were found. This was source/inventory review and a pattern-based
+  scan, not a guarantee that every possible secret format can be detected.
+  Evidence: ignored `.cache/publication_audit.json`. `.gitignore` now excludes all
+  output/results, data/recordings, EEG formats, archives, virtual environments,
+  caches, private keys and editor/machine settings. No local data was deleted.
+- Added `setup_windows.ps1`, `requirements-bootstrap.txt`, and three `launch_*.ps1`
+  wrappers. Setup requires CPython 3.11.9 x64, creates only a new clone-local
+  `.venv`, installs the unchanged runtime lock plus pinned packaging tools, and
+  verifies all versions, dependencies, application/PsychoPy visual imports, CLI
+  startup and hardware-free unit tests. Existing environments are preserved;
+  `-VerifyOnly` never installs packages. No hardware is opened by setup.
+- Added [INSTALL_ON_NEW_PC.md](INSTALL_ON_NEW_PC.md) with the complete private
+  clone/setup/COM-port/calibration/diagnostic/task/TTL/troubleshooting procedure.
+  COM portability already works through complete local `--config` JSON; the
+  diagnostic also has `--port`. Scientific application code is unchanged.
+- Reference environment verified: Windows 10 build 19045 x64, CPython 3.11.9 x64,
+  PsychoPy 2026.2.4, pyserial 3.5. Windows 10/11 x64 are the deployment targets;
+  Windows 11 and a second physical PC have not been validated. Setup does not
+  install prerequisites, alter drivers/firmware, or modify global Python.
+- Initial `-VerifyOnly` passed pinned versions, `pip check`, all application and
+  PsychoPy visual imports, all three CLI help commands, and **52 tests** (3.631 s).
+  All three PowerShell launch wrappers also passed `--help`. Fresh-install
+  verification is pending and must be recorded before publication.
+
+M3 laboratory status comes from the PO's supplied milestone instructions, not a
+new hardware measurement or review of saved raw/BDF files during this work:
+
+- Simon has run successfully over multiple sessions; all four serial buttons and
+  hardware timestamp RT calculations were checked; the optical diagnostic passed
+  10/10 pulses. Brief extra optical activations were observed in some sessions.
+- BioSemi TTL activity was seen in ActiView. Saved-BDF event counts/labels/timing
+  are still pending. OpenBCI is unvalidated and requires electrical verification
+  of its exact input limits and actual split-cable isolation/level conversion
+  before use, followed by saved-event validation.
+- **Approved artifact-policy gap:** Simon's `score_trial` picks the first eligible
+  ON but requires a single ON/OFF pair; extra edges invalidate RT. The diagnostic
+  separately classifies short activations and matches a unique full pair, without
+  choosing the first of multiple full candidates. The PO's first-complete,
+  correctly-timed pulse policy is not fully implemented. No scoring feature was
+  added as part of M3.
 
 ## Environment and reproducibility
 

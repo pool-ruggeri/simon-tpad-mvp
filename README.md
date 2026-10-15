@@ -5,9 +5,29 @@ responses. Blue maps to Button 1 / left; yellow maps to Button 2 / right.
 There are 4 practice and 16 experimental trials, balanced over color and side.
 The seed, trial order, software revision, and acquisition settings are saved.
 
-The local implementation and synthetic tests pass. The display smoke test passes.
-Real T-Pad behavior, physical optical timing, and EEG triggers still require the
-manual procedure in [docs/HARDWARE_VALIDATION.md](docs/HARDWARE_VALIDATION.md).
+The PO reports successful repeated Simon sessions, four-button serial acquisition,
+hardware RT checks, a 10/10 optical diagnostic, and BioSemi TTL activity visible
+in ActiView. Saved-BDF event/timing verification and the OpenBCI branch remain
+unvalidated. Software tests and display smoke checks pass; this is not full
+scientific or EEG qualification. See [hardware validation](docs/HARDWARE_VALIDATION.md).
+
+## Quick Start on another Windows PC
+
+Private repository: [pool-ruggeri/simon-tpad-mvp](https://github.com/pool-ruggeri/simon-tpad-mvp).
+Ask the owner for access. With Git for Windows and **CPython 3.11.9 x64** installed:
+
+```powershell
+git clone --branch main https://github.com/pool-ruggeri/simon-tpad-mvp.git
+Set-Location .\simon-tpad-mvp
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\setup_windows.ps1
+```
+
+The [complete installation guide](docs/INSTALL_ON_NEW_PC.md) covers authentication,
+prerequisites, selecting the actual COM port, display/sensitivity calibration,
+all three applications, TTL checks and troubleshooting. Setup creates a new
+isolated `.venv`; it preserves an existing one (`-VerifyOnly` checks it). Do not
+copy a `.venv` from another computer. Convenience scripts are
+`launch_simon.ps1`, `launch_calibration.ps1` and `launch_diagnostic.ps1`.
 
 ## Run on this PC
 
@@ -151,7 +171,14 @@ For a real PsychoPy display smoke with **synthetic serial events**, no device:
 Next perform a real device run and retain the output folder. Verify ten unique
 full pulses, investigate missing/ambiguous/unpaired/short events and frame
 warnings, and confirm sensor positioning/scanout timing before Simon acceptance.
-Actual T-Pad detection and electrical/recorded EEG TTL remain separately unverified.
+The PO reports a real 10/10 diagnostic. Electrical qualification and saved-file
+EEG verification remain separate from that observation and software checks.
+
+The PO-approved policy of selecting the first complete, correctly timed optical
+pulse and keeping later short activations as artifacts is **not implemented in
+Simon scoring**. Simon still invalidates extra ON/OFF edges. The diagnostic
+separates short activations and can match a single full pulse, but multiple full
+candidates remain ambiguous. Publication does not change either scoring policy.
 
 ## Recreate the isolated environment
 
@@ -159,20 +186,19 @@ Verified interpreter: 64-bit CPython 3.11.9. PsychoPy 2026.2.4 supports Python
 3.11 according to the [official installation documentation](https://psychopy.org/download.html).
 The existing user-installed PsychoPy 2023.1.3 was inspected but left unchanged.
 
-On a fresh copy of the project:
+On a fresh clone, use the checked setup workflow:
 
 ```powershell
-py -0p
-py -3.11 -m venv .venv
-.\.venv\Scripts\python.exe -m pip install --disable-pip-version-check --no-cache-dir -r requirements-lock.txt
-.\.venv\Scripts\python.exe -m pip check
-.\.venv\Scripts\python.exe -m unittest discover -s tests -v
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\setup_windows.ps1
 ```
 
+For an existing environment, use `setup_windows.ps1 -VerifyOnly`. Manual recovery
+commands and prerequisite details are in [INSTALL_ON_NEW_PC.md](docs/INSTALL_ON_NEW_PC.md).
 Activation is unnecessary. Always invoke the explicit `.venv` interpreter.
 `requirements.txt` pins the two direct dependencies, PsychoPy 2026.2.4 and
 pyserial 3.5. `requirements-lock.txt` pins all installed runtime dependencies
-from the verified Windows environment. Other platforms need separate installation
+from the verified Windows environment; `requirements-bootstrap.txt` separately
+pins pip/setuptools/wheel. Other platforms need separate installation
 qualification. PsychoPy brings its own dependencies; this application adds only
 pyserial and uses the standard library for testing and output.
 
@@ -272,5 +298,6 @@ Tests use fake serial input and displays and do not qualify hardware.
 Read [docs/PROJECT_HANDOFF.md](docs/PROJECT_HANDOFF.md) before resuming work and
 preserve [docs/DECISIONS.md](docs/DECISIONS.md). EEG electrical qualification is
 a later milestone; no BioSemi or OpenBCI connection is needed for first software
-acceptance. Future HID redundancy is documented but unimplemented. No remote
-repository has been created.
+acceptance. Future HID redundancy is documented but unimplemented. GitHub
+publication is authorized only for the private repository linked above; generated
+data, EEG recordings, environments, archives and credentials must remain local.
