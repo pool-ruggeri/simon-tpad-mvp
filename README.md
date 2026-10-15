@@ -91,6 +91,66 @@ For an automatically closing GUI smoke check (synthetic size, no sensor calibrat
 .\.venv\Scripts\python.exe tests\smoke_calibrate_opto.py
 ```
 
+## Opto timing diagnostic (M2B)
+
+After calibration, close the calibration patch and disconnect/close BBTK so COM5
+is free. Run:
+
+```powershell
+.\.venv\Scripts\python.exe opto_diagnostic.py
+```
+
+Place Opto 1 inside the outlined preview of the **actual Simon marker**. Space
+starts ten presentations, then shows results with the marker black. Space repeats;
+Escape saves and exits. No button responses are required. This directly reuses
+the Simon `Presentation`, marker drawing, and `present_trial` timeline: default
+80 px lower-left marker, 500 ms fixation, 500 ms white, the remainder of the fixed
+1500 ms response phase, black interval, and bounded serial grace. The normal blue
+left stimulus is also drawn by that unchanged presenter. This is not M2's 4 cm
+calibration patch. Full-screen/display configuration comes from `config.json`.
+
+```powershell
+.\.venv\Scripts\python.exe opto_diagnostic.py --port COM5 --windowed
+.\.venv\Scripts\python.exe opto_diagnostic.py --short-pulse-ms 10
+```
+
+The existing serial reader uses timeout-zero acquisition, verifies firmware,
+and enters Mode 5 once. Repeats keep the same connection and clock. Only setup
+and read-only timer-query commands are sent; there are no software TTL commands
+or T-Pad HID input. Live statistics and the current ON/OFF state stay outside the
+marker. The long panel is cached while white; numeric layout is compact and
+refreshed at most four times per second during black, with a separate live state
+label. No event controls the visual schedule.
+
+Outputs go to `output/opto_diagnostics/<unique_session_id>/`: `serial_raw.jsonl`,
+`optical_events.csv`, `pulses.csv`, and `summary.json`. Repeats have separate run
+numbers in the same launch's files. Raw bytes, duplicate edges, unpaired events,
+and extra activations remain auditable. Summaries are checkpointed between
+presentations and saved again on Escape/error; disk/power failures remain outside
+that guarantee. Scientific durations and intervals use hardware milliseconds only.
+
+Pulses at or below the saved short threshold (default **10 ms**, including the
+reported 1–2 ms activations) are counted separately. Full optical pairs need not
+be exactly 500 ms: 503–506 ms pairs are complete, with the difference from nominal
+recorded. Durations summarize all complete non-short pairs inside each run's
+hardware boundaries. Onset intervals use only adjacent scheduled presentations
+with unique complete matches, skipping gaps/ambiguity. Standard deviations use
+the population definition. Multiple candidate pulses, orphan edges, crossed
+boundaries, or arrival beyond grace prevent a confident scheduled match; no nth
+event pairing or host/hardware clock subtraction is used. A completed pair is
+not a hardware acceptance result. Review presentation warnings and raw data.
+
+For a real PsychoPy display smoke with **synthetic serial events**, no device:
+
+```powershell
+.\.venv\Scripts\python.exe tests\smoke_opto_diagnostic.py
+```
+
+Next perform a real device run and retain the output folder. Verify ten unique
+full pulses, investigate missing/ambiguous/unpaired/short events and frame
+warnings, and confirm sensor positioning/scanout timing before Simon acceptance.
+Actual T-Pad detection and electrical/recorded EEG TTL remain separately unverified.
+
 ## Recreate the isolated environment
 
 Verified interpreter: 64-bit CPython 3.11.9. PsychoPy 2026.2.4 supports Python

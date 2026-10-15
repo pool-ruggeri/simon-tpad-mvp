@@ -87,6 +87,40 @@ installation. Installed version 2026.2.4 passed the local display smoke test.
   prompts manually. Successful sensitivity calibration requires operator/device
   evidence; the completion message confirms the visual sequence only.
 
+## M2B: optical timing diagnostic (PO request, 2026-10-15)
+
+- `opto_diagnostic.py` imports and reuses the actual Simon `Presentation`,
+  `present_trial`, `Trial`, `events_for_trial`, and `TPadReader`. No original
+  experiment or M2 calibration code is changed. Use the Simon marker, not M2's
+  physically sized calibration patch. No new dependencies are introduced.
+- Preserve the full fixed timeline, including the black remainder of the nominal
+  response phase, inter-trial black interval, and bounded drain. Draw the same
+  blue/left stimulus through the existing presenter; no button response is needed.
+- Enter Mode 5 once after the first Space; keep the connection and clock across
+  repetitions. Keep only the existing command allowlist. Read-only hardware timer
+  boundaries associate pulses without ordinal event matching or clock mixing.
+- Pair original integer Opto 1 edges in wire order. Repeated ON before OFF makes
+  the group unpaired/ambiguous until an OFF restores synchronization. Preserve
+  duplicates without counting them twice. A pair of any nonnegative hardware
+  duration is complete; lengths <= a configurable 10 ms default are classified
+  as additional short activations and excluded from full-pulse timing averages.
+- Report detected physical pairs separately from uniquely matched presentations.
+  Multiple full pairs, orphan/crossed edges, late data, or unresolved acquisition
+  prevent a confident scheduled match. A missing presentation never shifts
+  subsequent identity. No duration tolerance is used to invent a match or onset.
+- Duration statistics cover complete non-short pairs inside run bounds; onset
+  intervals cover adjacent uniquely matched scheduled indices only. Use population
+  SD. Timer regression invalidates timing statistics. Host times are rendering/
+  arrival diagnostics only. No automatic hardware pass/fail is claimed.
+- Cache the large panel during white; use compact numeric layout on black and a
+  separate small live state label. The initial smoke exposed text-layout frame
+  misses; the revised display avoids that white-duration interference. Preserve
+  all frame warnings rather than concealing them in detection results.
+- Keep four dedicated files under ignored `output/opto_diagnostics/`. Retain all
+  repeats in one launch's files, with per-run summaries. Keep raw bytes and all
+  optical events, including events outside scheduled windows, unpaired edges,
+  and short activations. Checkpoint only on black screens and again on shutdown.
+
 ## Deferred work
 
 Real device/optical acceptance comes next. Electrical TTL interface qualification

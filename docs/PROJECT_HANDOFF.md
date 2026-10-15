@@ -5,10 +5,11 @@ AGENTS.md before making changes. Updated 2026-10-15 (Europe/Zurich).
 
 ## Current status and repository
 
-The initial MVP and M2 standalone optical calibration patch are implemented and
-software-verified. Real T-Pad behavioral acceptance and physical/EEG qualification
-remain outstanding. M2 supplies a visual patch only; the operator calibrates
-sensitivity separately with the official BBTK application.
+The initial MVP, M2 optical calibration patch, and M2B optical timing diagnostic
+are implemented. Software evidence is recorded below; real T-Pad behavioral
+acceptance and physical/EEG qualification remain outstanding. M2 supplies a visual
+patch only; M2B reuses the actual Simon marker and serial acquisition to check
+timing after the operator calibrates sensitivity separately in the BBTK app.
 
 - Repository: `C:\Users\pruggeri\Documents\EXPERIMENTS\GABRIEL_PAOLO`
 - Branch: `main`.
@@ -17,6 +18,10 @@ sensitivity separately with the official BBTK application.
   M2 leaves all Simon application modules, configuration, dependencies, and
   original tests unchanged. The M2 commit adds the standalone utility and its
   tests, and updates README/decisions/this handoff; resolve current HEAD below.
+- M2 baseline commit: `b05fb53c23c52cce829dd1aca225188d73017601`.
+  M2B adds `opto_diagnostic.py` and focused tests/documentation; Simon and M2 source,
+  shared serial/trial modules, configuration, dependencies, and old tests remain
+  unchanged. Current M2B revision is repository HEAD (resolve below).
 - Current repository revision: `HEAD`; resolve with the commands below.
 - Git author: `paolo ruggeri <paolo@mailtrial.com>`, supplied by the PO and
   configured only in this repository.
@@ -166,6 +171,91 @@ moving monitors or changing resolution/DPI scaling. Pixel rounding limits size
 precision. Next: the PO verifies physical size and runs BBTK calibration, then
 continues the existing real T-Pad validation procedure. Hardware/EEG status below
 remains unchanged.
+
+## M2B implementation and verification (2026-10-15)
+
+`opto_diagnostic.py` directly reuses the original `Presentation`, `present_trial`,
+`Trial`, `events_for_trial`, and `TPadReader`. The exact Simon marker is used:
+default 80 x 80 drawing pixels, lower-left 20 px margin, named black/white in
+`rgb`; in a 1024 x 768 window its center is (-452, -324). Window/display settings
+come from config.json, with full screen by default. The original blue/left circle
+is drawn by the shared presenter; no button response is required. The 4 cm M2
+patch is not substituted. The complete fixed Simon frame timeline, black interval,
+hardware timer queries, and bounded drain are reused without changing their code.
+
+The operator sees the requested instruction and an outline around the black
+marker, presses Space for ten presentations, reviews the results, and presses
+Space to repeat or Escape to save/exit. The outline is preview-only. Text stays
+horizontally outside the marker. ON/OFF state uses prepared labels without layout
+work while white; the compact numeric panel is updated on black at most 4 Hz.
+All raw data is retained, with no new serial protocol, explicit timer reset, HID
+channel, or software TTL. Mode 5 setup is entered once per launch; repeats retain
+the connection and clock. A backwards timer invalidates timing statistics.
+
+Four dedicated files are saved under ignored `output/opto_diagnostics/<id>/`:
+`serial_raw.jsonl`, `optical_events.csv`, `pulses.csv`, and `summary.json`. Repeats
+are separate numbered runs in that launch's files. Raw messages/chunks cover
+all input; optical CSV includes both optical channels and duplicate flags. Analysis
+uses Opto 1 only, ignoring pre-setup events for scientific results while retaining
+them in the logs. Checkpoints happen on black screens and on error/Escape cleanup.
+
+Physical edge pairs are separate from matched scheduled presentations. Full
+pairs need not be exactly 500 ms. A configurable <=10 ms default threshold
+separates the reported 1–2 ms activations. Repeated ON before OFF remains
+ambiguous until an OFF restores synchronization. Unique full pairs must fit one
+presentation's hardware boundaries without orphan/crossed edges, acquisition
+issues, or data beyond its grace; missing/extra events never shift later identity.
+Durations summarize all complete non-short physical pairs inside each run's
+hardware bounds, even when scheduled identity is ambiguous. Onset intervals use
+only adjacent uniquely matched scheduled indices. All measured statistics use
+hardware milliseconds, with population SD; flip/arrival times never enter those
+differences. Raw per-pulse differences remain visible but invalid if clock timing
+becomes uncertain. No automatic hardware pass/fail is inferred.
+
+M2B evidence:
+
+- Full suite: **52 tests passed** (41 existing + 11 diagnostic tests), including
+  existing optical parsing, partial messages, hardware duration calculations,
+  missing/extra/short/duplicate events, conservative matching, statistics,
+  reused fixed presentation phases, four output files, repeats with one setup/
+  connection, and preservation of completed pulses/fragments on serial error.
+  Final run: 1.527 s. Compilation and `opto_diagnostic.py --help` also passed.
+- The real PsychoPy GUI smoke uses ten unchanged Simon timelines with explicitly
+  simulated serial data and guards against any real serial open. Synthetic full
+  pulses are deliberately 505 ms, with one additional 2 ms activation. It reports
+  10 complete/matched presentations, one short activation, and 30 white frames
+  per presentation at approximately 60 Hz. Simulated 505 ms is test input, not a
+  hardware measurement or a comparison between host and device clocks.
+- Early display runs exposed expensive text-layout work adding a white frame.
+  The long panel is now cached during white and all three small state labels are
+  prepared before presentation. Display frame warnings remain recorded and
+  visible in the final panel; test-workstation rendering jitter is not hidden.
+  Final measured white flip intervals were 497.4168–501.2010 ms at 60.1234 Hz;
+  five presentations carried a frame warning somewhere in their fixed visual
+  timeline. Every white presentation had 30 drawn frames. These are host display
+  diagnostics and do not establish physical optical durations.
+- Smoke data/evidence and the rendered results image are under ignored
+  `.cache/opto_diagnostic_smoke/`. The image is read from this utility's own
+  backbuffer so it cannot capture other applications covering the shared desktop.
+  A default monitor warning is expected. No new dependencies were installed.
+- Actual T-Pad detection, timer-reply ordering/latency, optical scanout/thresholds,
+  and physiological TTL remain unverified. The smoke does not connect to the
+  T-Pad and cannot establish sensor or EEG acceptance.
+
+Resume M2B in the repository:
+
+```powershell
+.\.venv\Scripts\python.exe opto_diagnostic.py
+.\.venv\Scripts\python.exe opto_diagnostic.py --port COM5 --windowed
+.\.venv\Scripts\python.exe tests\smoke_opto_diagnostic.py
+.\.venv\Scripts\python.exe -m unittest discover -s tests -v
+```
+
+Close the M2 calibration window and disconnect/close BBTK first: the diagnostic
+needs exclusive COM5 ownership. It does not adjust sensitivity. Next milestone:
+the PO runs M2B on real hardware, retains the output folder, and investigates
+short activations, missing/ambiguous/unpaired events, nominal duration deviations,
+and all frame warnings. Full-screen physical/EEG qualification remains separate.
 
 ## Hardware status and known limitations
 

@@ -2,6 +2,7 @@
 __pycache__/
 *.py[cod]
 results/
+output/opto_diagnostics/
 *.tmp
 *.log
 .pytest_cache/
