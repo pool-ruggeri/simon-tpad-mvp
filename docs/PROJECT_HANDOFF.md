@@ -104,33 +104,33 @@ connection supplies behavioral responses. Future HID redundancy is unimplemented
   physical event timing on the device clock within one uninterrupted
   acquisition. PC receipt times describe delivery.
   [Python API and capture example](../README.md#standalone-tpad-listener-p1)
+- `capture_tpad.py` uses the same listener for a live button check and saves
+  every returned record, including the tail on Ctrl+C, in ignored
+  `output/tpad_capture_*.jsonl`. The `raw_base64` field preserves the original
+  payload bytes. All **73 tests** passed, including three new mocked tests
+  for live display, interruption and serial errors. A capture with the real
+  listener and mocked serial also preserved both acknowledgements, all eight
+  button edges, a malformed record and the incomplete tail.
 
-### Physical validation to run on this PC
+### Physical button validation to run on this PC
 
 1. Connect the tPAD's Serial USB lead and identify the actual COM port in
    Device Manager. Close BBTK and any acquisition application that owns it.
-   Position each fitted optical sensor on the black patch and connect the
-   configured voice-key microphone before starting the capture.
-2. Save the README capture example next to the listener, substitute the actual
-   COM port and run it from the checkout in VS Code with `.venv\Scripts\python.exe`
-   selected. Confirm the log contains `MODE 0:` then `MODE 5:`. Observe the
-   flashing green Mode 5 indicator.
-3. Press and release B1, B2, B3 and B4 in order, then repeat. Toggle a black
-   patch to white and back over Opto 1 using the serial-free calibration patch
-   or a controlled display. Expect `C P 1` on white and `C R 1` on black. Repeat
-   with Opto 2 if fitted. With the voice key connected, make distinct sounds
-   with quiet gaps and check for `M P 1` and `M R 1`.
+2. Run `.\.venv\Scripts\python.exe capture_tpad.py --port COM3 --duration 30`
+   from the checkout with the actual port in place of COM3. Confirm the terminal
+   shows `MODE 0:` followed by `MODE 5:`.
+3. Press and release B1, B2, B3 and B4 in order, then repeat. Check that the
+   terminal shows both edges for each button and the original hardware time
+   in milliseconds.
 4. Check the raw event fields, original integer milliseconds and local sequence
-   against the observed actions. Keep extra/malformed records and investigate
-   missing edges and backwards hardware timestamps. Repeat with Ctrl+C during
-   collection, check the saved partial capture, and start a fresh run to verify
-   port release. Record the device and firmware, COM port, source commit and
-   observations alongside the captures in ignored `output/`.
+   in `output/tpad_capture_*.jsonl` against the observed actions. Repeat with
+   Ctrl+C during collection, check the saved partial capture, and start a
+   fresh run to verify port release. Record the device and firmware, COM port,
+   source commit and observations alongside the captures in ignored `output/`.
 
-Hardware and timing qualification are pending. Mocked tests cannot measure
-USB latency, optical/voice-key timing, serial loss under sustained load or
-saved EEG trigger timing. The Windows pyserial backend clears queued driver
-input when opening the port, so begin controlled stimuli after setup.
+Physical B1–B4 validation is pending. Optical, voice-key and TTL/EEG
+qualification remain pending. The Windows pyserial backend clears queued
+driver input when opening the port, so begin button presses after setup.
 
 ## M3: publication and Windows deployment (2026-10-15)
 

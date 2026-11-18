@@ -55,6 +55,24 @@ not count as Simon responses. The T-Pad keyboard HID interface is not used.
 
 ## Standalone tPAD listener (P1)
 
+### Live B1–B4 check
+
+Connect the tPAD by Serial USB and close any other program using its port.
+Run the capture from the repository folder with the COM port shown in Device
+Manager. The tPAD and its Serial USB connection are sufficient.
+
+```powershell
+.\.venv\Scripts\python.exe capture_tpad.py --port COM3 --duration 30
+```
+
+Press and release B1–B4. Each edge appears live with its hardware timestamp,
+for example `B1 press | tPAD 100 ms`. The terminal also shows setup replies and
+malformed records. The script saves every record to `output/tpad_capture_*.jsonl`
+when the capture ends or you press Ctrl+C. Each line contains one record, with
+the original payload bytes encoded as `raw_base64`. Git ignores `output/`.
+
+### Python API
+
 Copy `tpad_listener.py` beside your Python task and use Python 3.11 with
 `pyserial==3.5` in the task's virtual environment. This project's Windows setup
 already installs it.
