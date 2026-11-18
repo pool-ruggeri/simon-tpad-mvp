@@ -98,109 +98,125 @@ connection supplies behavioral responses. Future HID redundancy is unimplemented
 
 ## P2 minimal PsychoPy Simon demo (2026-11-18)
 
-The PO reports that P1 and `capture_tpad.py` are working on this PC: real COM5
-B1–B4 presses/releases, Mode 0/Mode 5 initialization and hardware timestamps were
-physically checked. These are PO-supplied observations, not P2 measurements.
+The PO reports that P1 and `capture_tpad.py` work on COM5, including B1-B4
+press/release events, Mode 0/Mode 5 initialization and hardware timestamps.
+These remain PO-supplied physical observations, not new P2 measurements.
 
-- Added `simon_demo_psychopy.py`, a single procedural experiment with grouped
-  parameters, trial-plan/scoring/saving functions and one `main()` presentation
-  loop. The three listener integration areas are marked initialization, polling
-  and cleanup. No new classes, serial implementation, dependency or framework.
-- Eight trials: each red/blue × left/right combination twice, randomized with
-  local seed `20261118`. B1 = red/physical left, B2 = blue/physical right; red-left
-  and blue-right are congruent. Confirm placement and release buttons at start.
-  Fixation 500 ms, stimulus 500 ms, response window 1500 ms from onset, ITI
-  500 ms. Frame counts use a measured refresh rate and never end on a response.
-- Opto 1 patch: lower-left, 150 × 150 drawing pixels, 20 px margin, white for
-  200 nominal ms from the stimulus's onset flip, black otherwise. `--no-patch`
-  disables it and leaves hardware RT unavailable. Marker and stimulus are
-  spatially separate; neither physical patch size nor scanout alignment is
-  inferred from drawing coordinates.
-- Reuses `TPADListener` directly, once on COM5 by default. Polls before and after
-  every trial/final-collection frame and during instructions; no serial flush,
-  timer query/reset, software TTL or response-controlled display transition.
-  A final 500 ms black collection grace retains late arrivals.
-- This small receive-only demonstration differs from the original runner's
-  hardware-boundary-query design. It qualifies RT only after all eight unique
-  ordered Opto 1 ON/OFF pairs match their own scheduled flip delivery slots,
-  with no extra optical edges. Both first and completed receipt must be within
-  100 ms of the corresponding flip; pulse duration must be 200 ± 50 hardware
-  ms. These are conservative exclusion thresholds requiring physical acceptance,
-  not measured latency guarantees. No ordinal pairing or missing-onset estimate.
-  Missing/ambiguous/late optical trains, interrupted sessions, damaged acquisition
-  or hardware time regressions exclude all RTs. Visual frame delays and held,
-  repeated or late task presses exclude affected trials. Every record is kept.
-- An eligible first B1/B2 press uses only `press.tpad_ms - onset.tpad_ms`, within
-  inclusive 0–1500 hardware ms. Same-ms wire order excludes anticipatory presses.
-  A qualified omission has accuracy 0 and empty RT. Host flip/receipt timestamps
-  check presentation/delivery and never enter scientific RT subtraction.
-- Four outputs in a new ignored `output/simon_demo/<session>/`: `events.jsonl`
-  (all records in acquisition order, exact payload base64, both receipt stamps,
-  hardware fields and sequence), `trials.csv`, per-frame `timing.csv`, and
-  `session.json` (UTC date/time, source commit, seed/port, parameters, refresh,
-  status/errors). Finally saves on Escape, serial/display errors and completion;
-  close returns the already-read tail. A failed port-close gets one tail-recovery
-  retry. Exports are attempted independently with a writable disk.
-- Preserved the pre-existing uncommitted handoff edits. Before-work copies,
-  their Git diff and hashes of protected modules/configuration/interpreter are
-  retained under ignored `.cache/p2_20261118T123335179733Z/`.
-  `run_simon.py`, `tpad_serial.py`, `trial_logic.py`, `tpad_listener.py`,
-  `capture_tpad.py`, configuration, dependency pins and existing `.venv` remain
-  unchanged. No hardware acquisition device was opened; the GUI smoke used a
-  mocked listener.
+The PO subsequently requested substantial simplification. The current demo
+supersedes the original P2 implementation at
+`a0b0e8c60dca7298e55c90f112c066d5c31f31b5`: its 200 ms patch, 20 px margin,
+100 ms host receive-delay cutoff and whole-train RT exclusion no longer apply.
+The existing uncommitted zero-margin change was preserved. Its original source,
+local diff and protected-file hashes are backed up in ignored
+`.cache/p2_simplification_20261118T132307874060Z/`.
 
-Verification on the existing `.venv` Python 3.11.9:
+Current implementation:
 
-- Complete suite: **85 tests passed in 2.355 s** (73 existing + 12 new), exit 0.
-  Log: `.cache/p2_20261118T123335179733Z/unittest.txt`. New simulated tests
-  cover balance/seed/mapping/congruency, responses/errors/omissions, hardware RT,
-  missing/ambiguous/crossed/short/late optics, anticipatory/same-ms/deadline cases,
-  repeated/held presses, timing independence, continuous polling, disabled patch,
-  frame delays, startup/Escape/serial/display/close cleanup and data exports.
-- CLI help passed without opening a device. The real-window, hardware-free smoke
-  passed all eight trials with an empty mocked listener and a serial-open guard.
-  Measured refresh: **59.9394252 Hz**; 30 stimulus frames and 12 white-patch frames
-  per trial. Stimulus flip intervals: **500.309–500.644 ms**; patch flip intervals:
-  **200.097–200.703 ms**; **2,463 polls**, **0 detected delayed frames**. These
-  are host display diagnostics, not sensor measurements. A temporary-monitor
-  warning does not establish physical display calibration.
-- The initial real-window check exposed NumPy display dimensions in JSON
-  metadata. Normalizing dimensions/refresh to Python numbers fixed the export;
-  the successful rerun retained all four outputs. Failed-run partial exports
-  remain in the ignored smoke folder. Evidence:
-  `.cache/simon_demo_smoke/evidence.json` and its timestamped session directory.
+- `simon_demo_psychopy.py`: 233 total lines including comments/blank lines.
+  Parameters first, two small event/export helpers, one procedural `main()`;
+  no classes or scoring framework. Initialization, acquisition and cleanup are
+  marked A/B/C. Reuses the unchanged standalone listener directly.
+- Eight balanced red/blue x left/right trials; fixed local RNG seed 20261118.
+  RED = B1/physical left, BLUE = B2/physical right; confirm physical placement.
+  Fixation 500 ms, colored stimulus 500 ms, response window 1500 ms, ITI 500 ms.
+  Fullscreen by default; `--windowed` remains for initial checks. Space/Return
+  starts; Escape saves and exits. Responses cannot shorten any visual phase.
+- Patch: 150 x 150 drawing pixels at EXACT bottom-left with ZERO margin.
+  Center = `(-win.size[0]/2 + 75, -win.size[1]/2 + 75)`. White starts on the
+  stimulus flip for 100 nominal ms (six frames near 60 Hz); otherwise black.
+  Planned/actual transition flips are logged; PsychoPy's dropped-frame count
+  is saved. Timing/scanout are nominal until physically measured.
+- Polls the nonblocking reader every displayed trial frame, during instructions
+  and a final black collection interval. All records are retained in original
+  order, including releases, B3/B4, both optics, microphone, mode/diagnostic,
+  repeated, extra, malformed and incomplete records. No raw filtering,
+  suppression, debounce, deduplication, reordering or timestamp replacement.
+- `receipt_trial`/`receipt_phase` are serial RECEIPT context; every raw row
+  explicitly says `association=unconfirmed`. Final/cleanup data are unassigned.
+  A partial payload that started before stimulus onset cannot establish its
+  optical onset association. There is no host receive-delay cutoff.
+- Trial accuracy is independent of optical validity. The first B1/B2 press
+  received during the nominal stimulus/response-wait window supplies response,
+  original hardware time and accuracy (`response_basis=nominal_window_receipt`).
+  A completed omission has accuracy 0. Serial lag can affect this receipt-based
+  summary; raw logs remain available for separate analysis.
+- All received Opto 1 ON/OFF values appear as JSON lists in the trial table;
+  a unique pair supplies its observed hardware duration, including unusual
+  short pulses. Only an ordered, context-consistent pair without local damaged
+  acquisition or time regression can supply observed RT. The selected press
+  must follow ON in receive order and be within 0-1500 hardware ms. The sole
+  subtraction is `press.tpad_ms - onset.tpad_ms`. It is labeled as an observed
+  receipt-context association, not confirmed physical trial identity or full
+  scientific qualification. Uncertain/missing/extra optics leave only that
+  trial's RT unavailable; accuracy and other trials remain intact.
+- Unique ignored `output/simon_demo/<session>/` has `events.jsonl`, `trials.csv`,
+  `timing.csv`, `session.json`. Raw payload bytes are exact base64; both PC
+  receipt timestamps, original hardware ms and sequence are saved. Eight trial
+  rows include unstarted/partial trials. Exports are attempted independently
+  after completion, Escape or handled serial/display/setup/close errors.
 
-Physical P2 acceptance remains pending:
+Verification using the existing `.venv` Python 3.11.9:
 
-1. Close BBTK/capture, confirm COM5 and physical B1-left/B2-right placement, then
-   launch the windowed command below. Space/Return starts; Escape saves/exits.
-2. Position Opto 1 inside the entire 150 px patch. Retain real session logs and
-   confirm exactly eight ON/OFF pairs, original integer timestamps, measured
-   pulse duration, both payload receipt delays below the configured bound, and
-   no extra/spurious edges. Verify the receive-only identity assumptions before
-   interpreting any hardware RT as scientifically qualified.
-3. Measure marker-to-colored-stimulus scanout/luminance alignment independently;
-   RT is relative to Opto 1, not a claim of physical circle onset. Repeat for
-   full screen and any changed monitor/resolution/scaling. Inspect frame warnings.
-4. Check correct/error/omission trials, all four buttons/releases in the raw log,
-   a covered/missing optical pulse (RT must become unavailable), Escape during
-   stimulus/response/ITI and restart/port release. Preserve partial/error outputs.
+- Full suite: **85 tests passed in 2.516 seconds** (73 original + 12 updated demo tests), covering
+  balance/seed/mapping/congruency, 100 ms patch/500 ms stimulus, zero-margin
+  fullscreen geometry including simulated 1920 x 1200, phase polling, all raw
+  record types/repeats, missing/extra/short/late optics, response accuracy with
+  missing optics, omissions, crossed receipt context, timing independence,
+  Escape in every phase, setup/serial/display/close errors and independent
+  exports. The 150 ms optical-delivery test demonstrates removal of the old
+  100 ms receive cutoff.
+  Log: `.cache/p2_simplification_20261118T132307874060Z/unittest.txt`.
+- Real fullscreen GUI smoke passed with an empty mocked listener and serial-open
+  guard. Actual framebuffer in this tool run: **1920 x 1080**, patch center
+  **(-885, -465)**, refresh **59.9708602 Hz**. All eight patches had **6 white
+  frames**; observed flip durations **98.495-102.129 ms**. Stimulus intervals
+  were **498.254-502.157 ms**. **0 dropped frames**, **1,232 polls**.
+- Own-backbuffer pixel checks confirmed the complete 150 px square reaches the
+  left/bottom edges, white RGB 255 inside and black RGB 0 immediately outside;
+  black-state samples were RGB 0. Readback/screenshot saving happens BEFORE
+  refresh measurement/acquisition, not during timed pulses. Evidence:
+  `.cache/simon_demo_smoke/evidence.json`, `patch_black.png`, `patch_white.png`,
+  and the timestamped simulated session. No device or COM5 was opened.
+- The tool framebuffer differs from the PO-reported 1920 x 1200 lab display.
+  Nothing was reconfigured: placement uses actual `win.size`; a 1920 x 1200
+  window yields (-885, -525), verified in simulation. Confirm the intended
+  display using real session metadata. A temporary-monitor warning is not
+  physical calibration evidence.
+- Protected listener/capture/original Simon/serial/scoring modules, configuration,
+  dependency pins, existing `.venv` and pre-existing acquisition data are unchanged.
+  Preservation checked 32,103 data/environment files; syntax, CLI help and Git
+  diff checks passed. Local details are in the same evidence folder's
+  `verification.json`.
 
-Data are buffered during this short demonstration. Abrupt power loss/forced
-termination, unread driver bytes and disk failure remain limitations. If listener
-construction fails, its internal setup records are not exposed by the unchanged
-API; the demo can still save its failure status. Physical optics, voice-key,
-TTL/EEG, audio and eye tracking are outside this P2 implementation.
+Physical acceptance and remaining limits:
+
+1. Close BBTK/capture; confirm COM5 and B1-left/B2-right. Launch fullscreen below
+   and position Opto 1 inside the zero-margin patch on the actual intended display.
+2. Retain real logs and check eight nominal 100 ms pulses, raw integer timestamps,
+   receipt context/delivery and marker-to-colored-stimulus scanout alignment.
+   Observed RTs require physical review of those association assumptions.
+3. Check correct/error/omission responses, B3/B4/releases/microphone raw records
+   when available, a missing/extra pulse without losing accuracy/other trials,
+   and Escape during fixation/stimulus/wait/ITI followed by restart/port release.
+4. Inspect all raw events before more sophisticated offline scoring. No host
+   timestamp is substituted for missing optics, and no software TTL, firmware,
+   sensitivity, driver or system change was introduced.
+
+Data are buffered for this short task. Forced termination, power/disk failure
+or unread driver bytes remain unrecoverable. The unchanged listener does not
+expose internal setup records if its constructor itself fails. Physical optical,
+voice-key and EEG qualification remain separate from these simulated checks.
 
 ```powershell
-.\.venv\Scripts\python.exe simon_demo_psychopy.py --port COM5 --windowed
 .\.venv\Scripts\python.exe simon_demo_psychopy.py --port COM5
+.\.venv\Scripts\python.exe simon_demo_psychopy.py --port COM5 --windowed
 .\.venv\Scripts\python.exe tests\smoke_simon_demo_psychopy.py
 .\.venv\Scripts\python.exe -m unittest discover -s tests -v
 ```
 
-P2 source and documentation are published on `feature/standalone-tpad-listener`;
-resolve its exact revision with `git log -1`. `main` is not merged or advanced.
+Work stays on `feature/standalone-tpad-listener`; resolve the published source
+revision with `git log -1` and compare to `git ls-remote origin
+refs/heads/feature/standalone-tpad-listener`. No merge into `main`.
 
 ## P1 standalone listener on the new Windows PC (2026-11-18)
 
