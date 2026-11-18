@@ -31,10 +31,9 @@ copy a `.venv` from another computer. Convenience scripts are
 
 ## Run on this PC
 
-Open PowerShell in the repository and run:
+Run the tests and launch Simon from the repository folder in PowerShell.
 
 ```powershell
-Set-Location 'C:\Users\pruggeri\Documents\EXPERIMENTS\GABRIEL_PAOLO'
 .\.venv\Scripts\python.exe -m unittest discover -s tests -v
 .\.venv\Scripts\python.exe run_simon.py --gui-smoke
 .\.venv\Scripts\python.exe run_simon.py --windowed
@@ -53,6 +52,74 @@ Close the BBTK utility and other COM5 applications first. Space or Return advanc
 instructions and starts each block. Escape exits and saves collected data.
 During trials use only T-Pad Buttons 1 and 2. Buttons 3 and 4 are recorded but do
 not count as Simon responses. The T-Pad keyboard HID interface is not used.
+
+## Standalone tPAD listener (P1)
+
+Copy `tpad_listener.py` beside your Python task and use Python 3.11 with
+`pyserial==3.5` in the task's virtual environment. This project's Windows setup
+already installs it.
+Open `TPADListener(port)` once before timed trials. It uses 115200 baud, 8N1 and
+no flow control. Setup sends `X`, confirms `MODE 0:`, waits at least 25 ms, then
+sends `MOD5\r\n` and confirms `MODE 5:`. Each acknowledgement has a two-second
+deadline. A failed handshake releases the port and raises a serial exception.
+The connection is receive-only after setup.
+
+`poll()` returns a list of `TPADRecord` objects, including setup replies and
+early events on the first call. It makes one nonblocking read of up to 4096 bytes
+and keeps partial lines between calls. Poll often throughout the task, including
+stimulus and intertrial waits. An empty batch is normal. Delayed polling can fill
+the finite serial buffers, so continue polling through your task's final
+collection interval.
+
+This example runs for 30 seconds or until Ctrl+C. It saves the capture under
+the project's ignored `output/` directory. Use the tPAD's actual COM port from
+Device Manager and give this script exclusive use of that port.
+
+```python
+from datetime import datetime
+from pathlib import Path
+from time import monotonic, sleep
+
+from tpad_listener import TPADListener
+
+capture = Path("output") / f"tpad-{datetime.now():%Y%m%d-%H%M%S-%f}.txt"
+capture.parent.mkdir(exist_ok=True)
+listener = TPADListener("COM5")
+records = []
+try:
+    with listener:
+        print("Recording tPAD events for 30 seconds.")
+        deadline = monotonic() + 30
+        while monotonic() < deadline:
+            records.extend(listener.poll())
+            sleep(0.001)
+except KeyboardInterrupt:
+    pass
+finally:
+    records.extend(listener.close())
+    with capture.open("x", encoding="utf-8") as log:
+        for record in records:
+            print(record, file=log)
+    print(f"Saved {len(records)} records to {capture}")
+```
+
+A `with` block releases the port on exit. Explicit `close()` also returns any
+undelivered setup records and the final buffered fragment as `incomplete`. It
+returns these only once, even when called after the `with` block. A serial read
+error raises an exception and releases the port. Collect the tail with `close()`
+and keep earlier batches for diagnosis.
+
+| Field | Meaning |
+| --- | --- |
+| `kind`, `state` | `button` with `press`/`release`, `optical` or `microphone` with `on`/`off`, or `other`, `mode`, `reply`, `malformed`, `incomplete`. A mode record's state is the acknowledgement text. |
+| `channel`, `edge`, `sensor`, `button` | XiD channel, P/R edge, sensor ID, and physical button ID (1–4) when present. A5–A10 and T1 are retained as `other`. |
+| `tpad_ms` | Original whole milliseconds from the tPAD, or `None` for records without a decoded event time. Use this field for valid paired events on the same device clock. |
+| `rx_first_ns`, `rx_complete_ns` | PC monotonic nanoseconds at the reads containing the first payload byte and the terminator or last byte of a long-line piece. An incomplete fragment has `rx_complete_ns=None`. Use these times to diagnose delivery. |
+| `raw` | Original payload bytes, excluding CR/LF. Long corrupt lines are returned in bounded pieces. |
+| `sequence`, `out_of_order` | Local receive order and a flag for a hardware timestamp below any earlier decoded event timestamp. All repeats and regressions remain in the returned order. |
+
+See the [P1 handoff](docs/PROJECT_HANDOFF.md#p1-standalone-listener-on-the-new-windows-pc-2026-11-18)
+for checks on the physical device.
 
 ## Standalone optical calibration patch (M2)
 
@@ -291,7 +358,7 @@ Escape and exceptions with a writable output directory.
 
 ## Project files and continuity
 
-`tpad_serial.py` owns acquisition/parsing; `trial_logic.py` owns generation and
+`tpad_serial.py` owns Simon's acquisition/parsing; `trial_logic.py` owns generation and
 scientific scoring; `run_simon.py` owns presentation, navigation, and output.
 Tests use fake serial input and displays and do not qualify hardware.
 

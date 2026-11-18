@@ -1,7 +1,7 @@
 # Project handoff
 
 This is the canonical continuity document for the Simon–TPad MVP. Read it with
-AGENTS.md before making changes. Updated 2026-10-15 (Europe/Zurich).
+AGENTS.md before making changes. Updated 2026-11-18 (Europe/Zurich).
 
 ## Current status and repository
 
@@ -13,8 +13,10 @@ branch and full scientific qualification remain outstanding. M2 supplies a visua
 patch only; M2B reuses the actual Simon marker and serial acquisition to check
 timing after the operator calibrates sensitivity separately in the BBTK app.
 
-- Repository: `C:\Users\pruggeri\Documents\EXPERIMENTS\GABRIEL_PAOLO`
-- Branch: `main`.
+- P1 checkout: `C:\Users\pruggeri\Documents\EXPERIMENTS\simon-tpad-mvp` on
+  `feature/standalone-tpad-listener`.
+- Original reference PC checkout: `C:\Users\pruggeri\Documents\EXPERIMENTS\GABRIEL_PAOLO`
+  on `main`.
 - Validated original Simon implementation: `106f32d50590c57e9a752ad1e236ae3ef660ae66`.
   Baseline handoff: `11f9ed1bb8aef954dd0a8119b29c2c6cb01dd9f2`.
   M2 leaves all Simon application modules, configuration, dependencies, and
@@ -37,9 +39,9 @@ timing after the operator calibrates sensitivity separately in the BBTK app.
 - No firmware updates, driver changes, persistent Windows settings changes,
   or global package modifications.
 
-The sandbox-created repository has a different Windows owner from the normal
-user account. Use a per-command `safe.directory` option for Git if it reports
-dubious ownership; global Git trust configuration was not changed.
+The original PC's sandbox-created checkout has a different Windows owner from
+the normal user account. Use a per-command `safe.directory` option for Git if
+that checkout reports dubious ownership.
 
 ## Approved PO decisions
 
@@ -65,6 +67,70 @@ connection supplies behavioral responses. Future HID redundancy is unimplemented
   durations, grace, and seed. `requirements-lock.txt`: verified runtime environment.
 - README and manual validation procedure: installation, operation, data fields,
   scientific limits, and separate hardware/EEG qualification.
+
+## P1 standalone listener on the new Windows PC (2026-11-18)
+
+- Cloned the private project on Windows 10 Education x64 (build 19042) with
+  Git 2.54.0. The worktree was clean and `main` matched `origin/main` at
+  `8528349437b5719ab06bf922cdd1953b1153c3f1` before creating the feature branch.
+- Extracted signed CPython 3.11.9 x64 into the project cache. Passed its local
+  path to `setup_windows.ps1 -PythonExe`. Keep `.cache\cpython-3.11.9\tools`
+  while using this `.venv`, which uses that base interpreter. All application
+  packages are isolated in `.venv`, including PsychoPy 2026.2.4 and pyserial 3.5.
+  [Official Python NuGet package](https://www.nuget.org/packages/python/3.11.9)
+- Windows setup passed `pip check`, pinned-version checks, application and
+  PsychoPy visual imports, CLI startup and all **52 baseline tests**. PsychoPy
+  created a temporary monitor specification during import. The full suite after
+  implementation passed **70 tests**. The 18 added tests use a mocked port and
+  clock and cover setup, timeouts, fragmentation, all supported physical event
+  types, damaged input, repeats, receive order and cleanup. The README capture
+  example also passed with a mocked port and an isolated copy containing only
+  the listener and pyserial.
+- The Simon, optical patch and optical diagnostic display smoke checks passed.
+  The diagnostic matched 10 of 10 injected pulses and retained one short
+  activation. Details are in ignored `.cache/gui_smoke.json`,
+  `.cache/opto_smoke.json` and `.cache/opto_diagnostic_smoke/evidence.json`.
+- Read the PO-accepted MATLAB listener, integration guide, tests, X/Y demo and
+  handoff at `3f848cb67341aa384a6797f629d66130aef4808c`. The Python module
+  follows its mode handshake, accepted timestamp range, event framing and raw
+  record behavior. It labels M1 as `microphone` with P/R mapped to active/inactive,
+  using the vendor's Mode 5 channel table in section 18.5.
+  [MATLAB reference guide](https://github.com/pool-ruggeri/PND_BIOSEMI_BIOPAC_ELINK/blob/3f848cb67341aa384a6797f629d66130aef4808c/TPAD_INTEGRATION_GUIDE.md)
+  · [Black Box Toolkit tPAD guide](https://www.blackboxtoolkit.com/docs/pdf/TPadv1r1.pdf#page=129)
+- `tpad_listener.py` is standalone and requires pyserial and the standard
+  library. Setup sends only the two mode commands. Each `poll()` returns the
+  next batch of exact payloads without delimiters. The connection closes
+  without draining unread device/driver bytes. Poll frequently and keep
+  physical event timing on the device clock within one uninterrupted
+  acquisition. PC receipt times describe delivery.
+  [Python API and capture example](../README.md#standalone-tpad-listener-p1)
+
+### Physical validation to run on this PC
+
+1. Connect the tPAD's Serial USB lead and identify the actual COM port in
+   Device Manager. Close BBTK and any acquisition application that owns it.
+   Position each fitted optical sensor on the black patch and connect the
+   configured voice-key microphone before starting the capture.
+2. Save the README capture example next to the listener, substitute the actual
+   COM port and run it from the checkout in VS Code with `.venv\Scripts\python.exe`
+   selected. Confirm the log contains `MODE 0:` then `MODE 5:`. Observe the
+   flashing green Mode 5 indicator.
+3. Press and release B1, B2, B3 and B4 in order, then repeat. Toggle a black
+   patch to white and back over Opto 1 using the serial-free calibration patch
+   or a controlled display. Expect `C P 1` on white and `C R 1` on black. Repeat
+   with Opto 2 if fitted. With the voice key connected, make distinct sounds
+   with quiet gaps and check for `M P 1` and `M R 1`.
+4. Check the raw event fields, original integer milliseconds and local sequence
+   against the observed actions. Keep extra/malformed records and investigate
+   missing edges and backwards hardware timestamps. Repeat with Ctrl+C during
+   collection, check the saved partial capture, and start a fresh run to verify
+   port release. Record the device and firmware, COM port, source commit and
+   observations alongside the captures in ignored `output/`.
+
+Hardware and timing qualification are pending. Mocked tests cannot measure
+USB latency, optical/voice-key timing, serial loss under sustained load or
+saved EEG trigger timing. The Windows pyserial backend clears queued driver
+input when opening the port, so begin controlled stimuli after setup.
 
 ## M3: publication and Windows deployment (2026-10-15)
 
@@ -150,7 +216,7 @@ new hardware measurement or review of saved raw/BDF files during this work:
 
 ## Environment and reproducibility
 
-Only one interpreter was found via the Python launcher: 64-bit CPython 3.11.9 at
+On the original reference PC the Python launcher found 64-bit CPython 3.11.9 at
 `C:\Program Files\Python311\python.exe`. Created `.venv` without system-site
 packages. Existing user-level PsychoPy 2023.1.3 and pyserial 3.5 were read for
 inspection but not altered or imported by the new launcher.
@@ -431,7 +497,8 @@ No known unresolved software test failures. Remaining qualification/limits:
 
 ## Next milestone
 
-M3 private publication and same-PC clean installation are complete. On each new PC, repeat
+Run the P1 physical checks above on this PC before using the standalone listener
+in an experiment. For the Simon task on each new PC, repeat
 docs/HARDWARE_VALIDATION.md and retain actual session IDs/raw logs
 and display/timing/abort evidence. Preserve the PO's reported laboratory successes;
 next qualify saved BioSemi BDF events/timing, physical marker scanout and the
@@ -441,11 +508,11 @@ policy only under a separately authorized scientific change.
 ## Exact commands to resume
 
 ```powershell
-Set-Location 'C:\Users\pruggeri\Documents\EXPERIMENTS\GABRIEL_PAOLO'
-git -c safe.directory=C:/Users/pruggeri/Documents/EXPERIMENTS/GABRIEL_PAOLO status --short --branch
-git -c safe.directory=C:/Users/pruggeri/Documents/EXPERIMENTS/GABRIEL_PAOLO log -1 --format='%H %s'
-git -c safe.directory=C:/Users/pruggeri/Documents/EXPERIMENTS/GABRIEL_PAOLO remote -v
-git -c safe.directory=C:/Users/pruggeri/Documents/EXPERIMENTS/GABRIEL_PAOLO ls-remote origin refs/heads/main
+Set-Location 'C:\Users\pruggeri\Documents\EXPERIMENTS\simon-tpad-mvp'
+git status --short --branch
+git log -1 --format='%H %s'
+git remote -v
+git ls-remote origin refs/heads/feature/standalone-tpad-listener
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\setup_windows.ps1 -VerifyOnly
 .\.venv\Scripts\python.exe -m pip check
 .\.venv\Scripts\python.exe -m unittest discover -s tests -v
