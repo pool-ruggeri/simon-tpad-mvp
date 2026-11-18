@@ -13,10 +13,9 @@ branch and full scientific qualification remain outstanding. M2 supplies a visua
 patch only; M2B reuses the actual Simon marker and serial acquisition to check
 timing after the operator calibrates sensitivity separately in the BBTK app.
 
-- P1 checkout: `C:\Users\pruggeri\Documents\EXPERIMENTS\simon-tpad-mvp` on
-  `feature/standalone-tpad-listener`.
-- Original reference PC checkout: `C:\Users\pruggeri\Documents\EXPERIMENTS\GABRIEL_PAOLO`
-  on `main`.
+- Active existing checkout: `C:\Users\pruggeri\Documents\EXPERIMENTS\GABRIEL_PAOLO`
+  on `feature/standalone-tpad-listener`, tracking
+  `origin/feature/standalone-tpad-listener`.
 - Validated original Simon implementation: `106f32d50590c57e9a752ad1e236ae3ef660ae66`.
   Baseline handoff: `11f9ed1bb8aef954dd0a8119b29c2c6cb01dd9f2`.
   M2 leaves all Simon application modules, configuration, dependencies, and
@@ -43,6 +42,35 @@ The original PC's sandbox-created checkout has a different Windows owner from
 the normal user account. Use a per-command `safe.directory` option for Git if
 that checkout reports dubious ownership.
 
+## Existing checkout switch and verification (2026-11-18)
+
+- The existing working directory was clean on `main` at
+  `8528349437b5719ab06bf922cdd1953b1153c3f1` before fetching GitHub changes.
+  Switched in place to a new local tracking branch at
+  `62238cffb84e9d6ff25622cd18b136479cb6f914` (`Add live tPAD button capture tool`).
+  HEAD and `origin/feature/standalone-tpad-listener` match, with zero commits
+  ahead or behind. No second clone or merge was made; local `main` is unchanged.
+- Checked target paths against local files before switching and used
+  `git switch --no-overwrite-ignore`. No conflicts were found. After switching
+  and testing, all 64,479 protected pre-existing files retained their sizes and
+  modification times, including 32,058 files in `.venv`. Content hashes also
+  matched for protected files outside environment/cache directories, including
+  configuration and experimental output. All pre-existing directories remain.
+- Verified `tpad_listener.py` and `capture_tpad.py` are present. Used the existing
+  `.venv` Python 3.11.9 without package installation. Ran
+  `.\.venv\Scripts\python.exe -m unittest discover -s tests -v`:
+  **73 tests passed in 1.848 seconds**, exit code 0. Disabled bytecode writes
+  for this process to preserve existing caches. These are automated software
+  checks; no physical T-Pad or EEG validation was performed.
+- Ignored local evidence: `.cache/branch_switch_20261118T122117019177Z/`
+  contains `preservation_before.json`, `preservation_after.json`, and
+  `unittest.txt`. Environment/cache files were checked by metadata; these
+  manifests are evidence inventories, not backup copies.
+- This handoff update was left local and uncommitted at that checkpoint so HEAD
+  stayed at the fetched feature commit. Its content is preserved in the P2
+  update below. Resume from this existing directory with the exact commands at
+  the end of this document.
+
 ## Approved PO decisions
 
 PO-001 through PO-005 remain binding; see DECISIONS.md. All scientific RT uses
@@ -67,6 +95,112 @@ connection supplies behavioral responses. Future HID redundancy is unimplemented
   durations, grace, and seed. `requirements-lock.txt`: verified runtime environment.
 - README and manual validation procedure: installation, operation, data fields,
   scientific limits, and separate hardware/EEG qualification.
+
+## P2 minimal PsychoPy Simon demo (2026-11-18)
+
+The PO reports that P1 and `capture_tpad.py` are working on this PC: real COM5
+B1–B4 presses/releases, Mode 0/Mode 5 initialization and hardware timestamps were
+physically checked. These are PO-supplied observations, not P2 measurements.
+
+- Added `simon_demo_psychopy.py`, a single procedural experiment with grouped
+  parameters, trial-plan/scoring/saving functions and one `main()` presentation
+  loop. The three listener integration areas are marked initialization, polling
+  and cleanup. No new classes, serial implementation, dependency or framework.
+- Eight trials: each red/blue × left/right combination twice, randomized with
+  local seed `20261118`. B1 = red/physical left, B2 = blue/physical right; red-left
+  and blue-right are congruent. Confirm placement and release buttons at start.
+  Fixation 500 ms, stimulus 500 ms, response window 1500 ms from onset, ITI
+  500 ms. Frame counts use a measured refresh rate and never end on a response.
+- Opto 1 patch: lower-left, 150 × 150 drawing pixels, 20 px margin, white for
+  200 nominal ms from the stimulus's onset flip, black otherwise. `--no-patch`
+  disables it and leaves hardware RT unavailable. Marker and stimulus are
+  spatially separate; neither physical patch size nor scanout alignment is
+  inferred from drawing coordinates.
+- Reuses `TPADListener` directly, once on COM5 by default. Polls before and after
+  every trial/final-collection frame and during instructions; no serial flush,
+  timer query/reset, software TTL or response-controlled display transition.
+  A final 500 ms black collection grace retains late arrivals.
+- This small receive-only demonstration differs from the original runner's
+  hardware-boundary-query design. It qualifies RT only after all eight unique
+  ordered Opto 1 ON/OFF pairs match their own scheduled flip delivery slots,
+  with no extra optical edges. Both first and completed receipt must be within
+  100 ms of the corresponding flip; pulse duration must be 200 ± 50 hardware
+  ms. These are conservative exclusion thresholds requiring physical acceptance,
+  not measured latency guarantees. No ordinal pairing or missing-onset estimate.
+  Missing/ambiguous/late optical trains, interrupted sessions, damaged acquisition
+  or hardware time regressions exclude all RTs. Visual frame delays and held,
+  repeated or late task presses exclude affected trials. Every record is kept.
+- An eligible first B1/B2 press uses only `press.tpad_ms - onset.tpad_ms`, within
+  inclusive 0–1500 hardware ms. Same-ms wire order excludes anticipatory presses.
+  A qualified omission has accuracy 0 and empty RT. Host flip/receipt timestamps
+  check presentation/delivery and never enter scientific RT subtraction.
+- Four outputs in a new ignored `output/simon_demo/<session>/`: `events.jsonl`
+  (all records in acquisition order, exact payload base64, both receipt stamps,
+  hardware fields and sequence), `trials.csv`, per-frame `timing.csv`, and
+  `session.json` (UTC date/time, source commit, seed/port, parameters, refresh,
+  status/errors). Finally saves on Escape, serial/display errors and completion;
+  close returns the already-read tail. A failed port-close gets one tail-recovery
+  retry. Exports are attempted independently with a writable disk.
+- Preserved the pre-existing uncommitted handoff edits. Before-work copies,
+  their Git diff and hashes of protected modules/configuration/interpreter are
+  retained under ignored `.cache/p2_20261118T123335179733Z/`.
+  `run_simon.py`, `tpad_serial.py`, `trial_logic.py`, `tpad_listener.py`,
+  `capture_tpad.py`, configuration, dependency pins and existing `.venv` remain
+  unchanged. No hardware acquisition device was opened; the GUI smoke used a
+  mocked listener.
+
+Verification on the existing `.venv` Python 3.11.9:
+
+- Complete suite: **85 tests passed in 2.355 s** (73 existing + 12 new), exit 0.
+  Log: `.cache/p2_20261118T123335179733Z/unittest.txt`. New simulated tests
+  cover balance/seed/mapping/congruency, responses/errors/omissions, hardware RT,
+  missing/ambiguous/crossed/short/late optics, anticipatory/same-ms/deadline cases,
+  repeated/held presses, timing independence, continuous polling, disabled patch,
+  frame delays, startup/Escape/serial/display/close cleanup and data exports.
+- CLI help passed without opening a device. The real-window, hardware-free smoke
+  passed all eight trials with an empty mocked listener and a serial-open guard.
+  Measured refresh: **59.9394252 Hz**; 30 stimulus frames and 12 white-patch frames
+  per trial. Stimulus flip intervals: **500.309–500.644 ms**; patch flip intervals:
+  **200.097–200.703 ms**; **2,463 polls**, **0 detected delayed frames**. These
+  are host display diagnostics, not sensor measurements. A temporary-monitor
+  warning does not establish physical display calibration.
+- The initial real-window check exposed NumPy display dimensions in JSON
+  metadata. Normalizing dimensions/refresh to Python numbers fixed the export;
+  the successful rerun retained all four outputs. Failed-run partial exports
+  remain in the ignored smoke folder. Evidence:
+  `.cache/simon_demo_smoke/evidence.json` and its timestamped session directory.
+
+Physical P2 acceptance remains pending:
+
+1. Close BBTK/capture, confirm COM5 and physical B1-left/B2-right placement, then
+   launch the windowed command below. Space/Return starts; Escape saves/exits.
+2. Position Opto 1 inside the entire 150 px patch. Retain real session logs and
+   confirm exactly eight ON/OFF pairs, original integer timestamps, measured
+   pulse duration, both payload receipt delays below the configured bound, and
+   no extra/spurious edges. Verify the receive-only identity assumptions before
+   interpreting any hardware RT as scientifically qualified.
+3. Measure marker-to-colored-stimulus scanout/luminance alignment independently;
+   RT is relative to Opto 1, not a claim of physical circle onset. Repeat for
+   full screen and any changed monitor/resolution/scaling. Inspect frame warnings.
+4. Check correct/error/omission trials, all four buttons/releases in the raw log,
+   a covered/missing optical pulse (RT must become unavailable), Escape during
+   stimulus/response/ITI and restart/port release. Preserve partial/error outputs.
+
+Data are buffered during this short demonstration. Abrupt power loss/forced
+termination, unread driver bytes and disk failure remain limitations. If listener
+construction fails, its internal setup records are not exposed by the unchanged
+API; the demo can still save its failure status. Physical optics, voice-key,
+TTL/EEG, audio and eye tracking are outside this P2 implementation.
+
+```powershell
+.\.venv\Scripts\python.exe simon_demo_psychopy.py --port COM5 --windowed
+.\.venv\Scripts\python.exe simon_demo_psychopy.py --port COM5
+.\.venv\Scripts\python.exe tests\smoke_simon_demo_psychopy.py
+.\.venv\Scripts\python.exe -m unittest discover -s tests -v
+```
+
+P2 source and documentation are published on `feature/standalone-tpad-listener`;
+resolve its exact revision with `git log -1`. `main` is not merged or advanced.
 
 ## P1 standalone listener on the new Windows PC (2026-11-18)
 
@@ -128,8 +262,9 @@ connection supplies behavioral responses. Future HID redundancy is unimplemented
    fresh run to verify port release. Record the device and firmware, COM port,
    source commit and observations alongside the captures in ignored `output/`.
 
-Physical B1–B4 validation is pending. Optical, voice-key and TTL/EEG
-qualification remain pending. The Windows pyserial backend clears queued
+The PO subsequently reports physical B1–B4 validation on COM5, including
+press/release events, Mode 0/Mode 5 initialization and hardware timestamps.
+Optical, voice-key and TTL/EEG qualification remain pending. The Windows pyserial backend clears queued
 driver input when opening the port, so begin button presses after setup.
 
 ## M3: publication and Windows deployment (2026-10-15)
@@ -497,8 +632,8 @@ No known unresolved software test failures. Remaining qualification/limits:
 
 ## Next milestone
 
-Run the P1 physical checks above on this PC before using the standalone listener
-in an experiment. For the Simon task on each new PC, repeat
+Complete the P2 physical acceptance checks above before interpreting demo RTs.
+P1 button validation is PO-reported complete. For the original Simon task on each new PC, repeat
 docs/HARDWARE_VALIDATION.md and retain actual session IDs/raw logs
 and display/timing/abort evidence. Preserve the PO's reported laboratory successes;
 next qualify saved BioSemi BDF events/timing, physical marker scanout and the
@@ -508,7 +643,7 @@ policy only under a separately authorized scientific change.
 ## Exact commands to resume
 
 ```powershell
-Set-Location 'C:\Users\pruggeri\Documents\EXPERIMENTS\simon-tpad-mvp'
+Set-Location 'C:\Users\pruggeri\Documents\EXPERIMENTS\GABRIEL_PAOLO'
 git status --short --branch
 git log -1 --format='%H %s'
 git remote -v
@@ -516,6 +651,7 @@ git ls-remote origin refs/heads/feature/standalone-tpad-listener
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\setup_windows.ps1 -VerifyOnly
 .\.venv\Scripts\python.exe -m pip check
 .\.venv\Scripts\python.exe -m unittest discover -s tests -v
+.\.venv\Scripts\python.exe simon_demo_psychopy.py --port COM5 --windowed
 .\.venv\Scripts\python.exe run_simon.py --gui-smoke
 .\.venv\Scripts\python.exe run_simon.py --windowed
 ```

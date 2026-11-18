@@ -139,6 +139,106 @@ and keep earlier batches for diagnosis.
 See the [P1 handoff](docs/PROJECT_HANDOFF.md#p1-standalone-listener-on-the-new-windows-pc-2026-11-18)
 for checks on the physical device.
 
+## Minimal red/blue PsychoPy Simon demo (P2)
+
+`simon_demo_psychopy.py` is a separate, procedural teaching experiment. It uses
+**RED = B1 / left** and **BLUE = B2 / right**; confirm the physical button
+placement before starting. These colors/mappings differ from `run_simon.py`.
+P1 B1–B4 acquisition on COM5 is physically validated according to the PO;
+the new P2 visual/optical timing still needs physical acceptance.
+
+Close BBTK/capture and any other COM5 owner, then run from this repository:
+
+```powershell
+.\.venv\Scripts\python.exe simon_demo_psychopy.py --port COM5 --windowed
+```
+
+Space/Return starts; Escape saves partial data and exits. Remove `--windowed`
+for full screen after initial checks. Put Opto 1 over the lower-left **150 × 150
+pixel** patch, 20 pixels from the window edges. `--no-patch` disables it; hardware
+RT then stays unavailable. Change the parameters together near the script's top;
+`--seed` overrides the documented default seed **20261118**.
+
+The eight trials contain every red/blue × left/right condition twice. Red-left
+and blue-right are congruent. Fixation lasts 500 ms, the colored stimulus 500 ms,
+the response window 1500 ms from onset, and ITI 500 ms. The patch is white only
+for the first 200 ms, black otherwise. Durations round to whole measured refresh
+frames; the timeline continues through early responses. Both stimulus and patch
+start on one `win.flip()`. Physical scanout alignment and durations are nominal
+until measured; the script stops if a stable refresh rate cannot be measured.
+
+### The three listener integration points
+
+The complete experiment is in `main()`. Its parameters, trial plan, conservative
+scoring, and exports precede it. Copy these few lines into another experiment,
+keeping the poll inside **every** fixation, stimulus, response-wait, and ITI loop:
+
+```python
+from tpad_listener import TPADListener
+
+records = []
+listener = TPADListener("COM5")          # INITIALIZATION: once before trials.
+try:
+    while experiment_is_running:
+        records.extend(listener.poll()) # POLLING: nonblocking, keep the entire batch.
+        # Draw this frame, check Escape, then win.flip().
+finally:
+    records.extend(listener.close())    # CLEANUP: release port and retain the tail.
+    # Save every record, even after an interruption or serial error.
+```
+
+Keep the existing listener beside the new script. It provides the Mode 0/Mode 5
+handshake; no new serial protocol, timer reset, HID path, or software TTL is needed.
+The demo marks these same three areas explicitly and also handles close failures.
+
+### Hardware RT qualification and saved data
+
+Only the first eligible B1/B2 **press** counts; releases/B3/B4 and all diagnostics
+remain in the raw log. RT is exactly `press.tpad_ms - onset.tpad_ms`, within an
+inclusive 0–1500 hardware-ms window; a same-ms press preceding ON in receive
+sequence is anticipatory. Host and hardware timestamps are never subtracted.
+
+This small receive-only demo does not use the original runner's hardware timer
+queries. Instead it requires the **entire eight-pulse optical train** to match
+uniquely: one ordered Opto 1 ON/OFF pair per scheduled patch, a hardware duration
+within 200 ± 50 ms, and first-byte/completed receipt within 100 ms after each
+corresponding flip. PC monotonic stamps only check delivery/identity. These
+exclusion thresholds are not a measured transport guarantee. Missing, repeated,
+unassigned, or late optical edges exclude the whole train; the next trial never
+inherits a missing trial's pulse. All original edges remain saved. Timestamp
+regressions, damaged/incomplete acquisition, and interrupted sessions also
+exclude RT. Delayed visual frames or held/repeated/late task presses exclude
+affected trials. An intact trial with no eligible press is a valid omission
+(accuracy 0, empty RT). No onset or replacement RT is manufactured.
+
+Each launch creates a unique `output/simon_demo/<session>/` folder:
+
+| File | Contents |
+| --- | --- |
+| `events.jsonl` | Every listener record in acquisition order, exact payload as `raw_base64`, original hardware milliseconds, host receipt stamps, sequence, and malformed/diagnostic records. The API does not supply line delimiters or unread driver bytes. |
+| `trials.csv` | Full randomized plan, completed/started flags, mapping/congruency, response, accuracy, qualified hardware timestamps/RT, validity and exclusion reasons. |
+| `timing.csv` | Planned/observed PsychoPy flip times, separate host monotonic stamps, phases, stimulus/patch transitions, accumulated deviations and frame-delay flags. |
+| `session.json` | UTC dates, source commit, seed, port, parameters, measured refresh/frame counts, status and errors. |
+
+Data are buffered during this short task and saved in cleanup after completion,
+Escape, exceptions, or serial errors with a writable disk. Forced termination,
+power loss, unread serial bytes, and disk failure cannot be recovered. Original
+Simon modules, P1 listener/capture, configuration and dependencies are unchanged.
+
+Run automated tests and the real-window smoke (empty mocked listener, no device):
+
+```powershell
+.\.venv\Scripts\python.exe -m unittest discover -s tests -v
+.\.venv\Scripts\python.exe tests\smoke_simon_demo_psychopy.py
+```
+
+The smoke runs all eight visual trials and keeps its simulated evidence under
+`.cache/simon_demo_smoke/`. It does not establish optical or RT accuracy. Before
+scientific use, confirm button placement, eight physical 200 ms pulses, serial
+delivery bounds, patch-to-stimulus scanout difference, missing/extra-event
+exclusion, omissions and Escape/restart with retained real COM5 logs. See the
+[P2 handoff](docs/PROJECT_HANDOFF.md#p2-minimal-psychopy-simon-demo-2026-11-18).
+
 ## Standalone optical calibration patch (M2)
 
 ```powershell
